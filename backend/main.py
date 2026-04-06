@@ -256,7 +256,7 @@ async def download_image(image_id: int):
 
 @app.get("/api/image/{image_id}/thumbnail")
 async def get_thumbnail(image_id: int):
-    """获取压缩缩略图，减少带宽消耗"""
+    """获取压缩缩略图，确保文件小于500KB"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT path FROM images WHERE id = ?", (image_id,))
@@ -282,9 +282,29 @@ async def get_thumbnail(image_id: int):
                 new_height = int(height * ratio)
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-            # 保存到内存
+            # 压缩到500KB以内，通过逐步降低质量实现
+            MAX_SIZE = 500 * 1024  # 500KB
             output = io.BytesIO()
-            img.save(output, format='JPEG', quality=85, optimize=True)
+            quality = 85
+            img.save(output, format='JPEG', quality=quality, optimize=True)
+            
+            # 如果超过500KB，逐步降低质量
+            while output.tell() > MAX_SIZE and quality > 30:
+                output.truncate(0)
+                output.seek(0)
+                quality -= 10
+                img.save(output, format='JPEG', quality=quality, optimize=True)
+            
+            # 如果仍然超过500KB，可能图片尺寸太大，需要进一步缩小
+            while output.tell() > MAX_SIZE and img.size[0] > 400:
+                output.truncate(0)
+                output.seek(0)
+                # 缩小到原来的75%
+                new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+                quality = min(quality, 70)
+                img.save(output, format='JPEG', quality=quality, optimize=True)
+            
             output.seek(0)
 
         return StreamingResponse(output, media_type="image/jpeg")
