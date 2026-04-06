@@ -499,7 +499,6 @@ def get_image_final_status(image_id: int) -> Optional[str]:
     """获取图片最终审核状态
     - 3人投票全部通过 = pass
     - 3人投票有分歧（有通过也有不通过）= disputed
-    注意：只取前 REQUIRED_VOTES 条投票记录
     - 3人投票全部不通过 = fail
     """
     conn = get_db()
@@ -515,12 +514,19 @@ def get_image_final_status(image_id: int) -> Optional[str]:
     votes = [row['status'] for row in cursor.fetchall()]
     conn.close()
     
+    return _calculate_final_status(votes)
+
+
+
+
+def _calculate_final_status(votes):
+    """Helper: Calculate final status from votes list.
+    Shared logic between single and batch functions.
+    """
     if len(votes) < REQUIRED_VOTES:
         return None
-    
     pass_count = votes.count(REVIEW_STATUS_PASS)
     fail_count = votes.count(REVIEW_STATUS_FAIL)
-    
     if pass_count == REQUIRED_VOTES:
         return REVIEW_STATUS_PASS
     elif fail_count == REQUIRED_VOTES:
@@ -529,21 +535,25 @@ def get_image_final_status(image_id: int) -> Optional[str]:
         return REVIEW_STATUS_DISPUTED
 
 
-
-
 def get_image_final_statuses_batch(image_ids):
     """Batch get final status for multiple images.
     Returns: {image_id: status} dict, None means review not completed.
     """
     if not image_ids:
         return {}
-    # Validate all IDs are integers to prevent SQL injection
+    
+    # Validate and normalize all IDs to integers
     validated_ids = []
+    skipped_ids = []
     for img_id in image_ids:
         try:
             validated_ids.append(int(img_id))
         except (TypeError, ValueError):
-            continue  # Skip invalid IDs
+            skipped_ids.append(img_id)
+    
+    if skipped_ids:
+        log_message(f"Skipped invalid image IDs: {skipped_ids}")
+    
     if not validated_ids:
         return {}
     conn = get_db()
@@ -560,19 +570,11 @@ def get_image_final_statuses_batch(image_ids):
             votes_by_image[img_id] = []
         votes_by_image[img_id].append(row['status'])
     result = {}
-    for img_id in image_ids:
+    # Calculate final status for each image using shared helper
+    result = {}
+    for img_id in validated_ids:
         votes = votes_by_image.get(img_id, [])
-        if len(votes) < REQUIRED_VOTES:
-            result[img_id] = None
-            continue
-        pass_count = votes.count(REVIEW_STATUS_PASS)
-        fail_count = votes.count(REVIEW_STATUS_FAIL)
-        if pass_count == REQUIRED_VOTES:
-            result[img_id] = REVIEW_STATUS_PASS
-        elif fail_count == REQUIRED_VOTES:
-            result[img_id] = REVIEW_STATUS_FAIL
-        else:
-            result[img_id] = REVIEW_STATUS_DISPUTED
+        result[img_id] = _calculate_final_status(votes)
     return result
 
 def get_disputed_images() -> List[dict]:

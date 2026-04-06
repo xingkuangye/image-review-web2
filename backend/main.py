@@ -535,7 +535,7 @@ async def admin_export_approved(x_admin_password: str = Header(None)):
 
             # Batch fetch all image statuses (single query, no N+1)
             image_ids = [img['id'] for img in all_images]
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             image_statuses = await loop.run_in_executor(
                 None, get_image_final_statuses_batch, image_ids
             )
