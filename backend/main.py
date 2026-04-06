@@ -502,85 +502,81 @@ async def admin_get_stats(x_admin_password: str = Header(None)):
 
 @app.get("/api/admin/export")
 async def admin_export_approved(x_admin_password: str = Header(None)):
-    """导出所有审核通过的图片（按角色分文件夹）"""
+    """Export all approved images (by role folder).
+    Optimization: batch status query, pre-group by role_id, thread pool for DB ops.
+    """
     verify_admin(x_admin_password)
     conn = get_db()
     cursor = conn.cursor()
-    
-    # 创建导出目录
+
     export_dir = os.path.join(BASE_DIR, 'exports')
     os.makedirs(export_dir, exist_ok=True)
-    
-    # 创建临时zip文件
-    zip_filename = f"审核通过图片_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+
+    zip_filename = f"Approved_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
     zip_path = os.path.join(export_dir, zip_filename)
-    
+
     try:
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            # 获取所有角色
+            # Get all roles
             cursor.execute("SELECT id, name FROM roles")
             roles = cursor.fetchall()
-            
-            # 批量获取所有图片及其投票状态，避免N+1查询
-            cursor.execute('''
-                SELECT i.id, i.path, i.role_id
-                FROM images i
-            ''')
+
+            # Batch fetch all images
+            cursor.execute("SELECT id, path, role_id FROM images")
             all_images = cursor.fetchall()
-            
-            # 批量获取所有图片的最终状态
-            image_statuses = {}
+
+            # Pre-group images by role_id (O(I) instead of O(R*I))
+            images_by_role = {}
             for img in all_images:
-                try:
-                    status = get_image_final_status(img['id'])
-                    image_statuses[img['id']] = status
-                except Exception as e:
-                    logger.warning(f"获取图片 {img['id']} 状态失败: {e}")
-                    image_statuses[img['id']] = None
-            
+                rid = img['role_id']
+                if rid not in images_by_role:
+                    images_by_role[rid] = []
+                images_by_role[rid].append(img)
+
+            # Batch fetch all image statuses (single query, no N+1)
+            image_ids = [img['id'] for img in all_images]
+            loop = asyncio.get_event_loop()
+            image_statuses = await loop.run_in_executor(
+                None, get_image_final_statuses_batch, image_ids
+            )
+
             total_count = 0
             for role in roles:
                 role_id, role_name = role['id'], role['name']
-                
-                # 清理角色名称用于文件夹名
                 safe_folder_name = "".join(c for c in role_name if c.isalnum() or c in (' ', '-', '_')).strip()
                 if not safe_folder_name:
-                    safe_folder_name = f"角色{role_id}"
-                
-                role_images = [img for img in all_images if img['role_id'] == role_id]
+                    safe_folder_name = f"Role{role_id}"
+
+                role_images = images_by_role.get(role_id, [])
                 role_pass_count = 0
-                
+
                 for img in role_images:
-                    img_path = img['path']
-                    img_id = img['id']
-                    final_status = image_statuses.get(img_id)
-                    
-                    # 只有全部通过的图片才导出（None表示投票未完成或查询失败，不导出）
+                    final_status = image_statuses.get(img['id'])
                     if final_status == 'pass':
+                        img_path = img['path']
                         if os.path.exists(img_path):
-                            # 添加到zip，保持原文件夹结构
                             arcname = os.path.join(safe_folder_name, os.path.basename(img_path))
                             zipf.write(img_path, arcname)
                             role_pass_count += 1
                             total_count += 1
-                
-                log_message(f"角色 {role_name}: {role_pass_count} 张图片通过审核")
-        
-        log_message(f"导出完成，共 {total_count} 张图片")
-        
+
+                log_message(f"Role {role_name}: {role_pass_count} approved")
+
+        log_message(f"Export complete: {total_count} images")
+
         if total_count == 0:
-            # 没有图片，返回提示
             if os.path.exists(zip_path):
                 os.remove(zip_path)
-            return JSONResponse(content={"message": "暂无审核通过的图片", "count": 0})
-        
+            return JSONResponse(content={"message": "No approved images", "count": 0})
+
         return FileResponse(zip_path, filename=zip_filename, media_type='application/zip')
-        
+
     except Exception as e:
-        log_message(f"导出失败: {str(e)}")
+        log_message(f"Export failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
 
 @app.get("/api/admin/export-disputed")
 async def admin_export_disputed(x_admin_password: str = Header(None)):

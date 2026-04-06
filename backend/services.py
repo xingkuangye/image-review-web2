@@ -529,6 +529,40 @@ def get_image_final_status(image_id: int) -> Optional[str]:
         return REVIEW_STATUS_DISPUTED
 
 
+
+
+def get_image_final_statuses_batch(image_ids):
+    if not image_ids:
+        return {}
+    conn = get_db()
+    cursor = conn.cursor()
+    placeholders = ','.join('?' * len(image_ids))
+    sql = 'SELECT image_id, status FROM reviews WHERE image_id IN (' + placeholders + ') AND status != ? ORDER BY image_id, reviewed_at ASC, id ASC'
+    cursor.execute(sql, (*image_ids, REVIEW_STATUS_SKIP))
+    all_votes = cursor.fetchall()
+    conn.close()
+    votes_by_image = {}
+    for row in all_votes:
+        img_id = row['image_id']
+        if img_id not in votes_by_image:
+            votes_by_image[img_id] = []
+        votes_by_image[img_id].append(row['status'])
+    result = {}
+    for img_id in image_ids:
+        votes = votes_by_image.get(img_id, [])
+        if len(votes) < REQUIRED_VOTES:
+            result[img_id] = None
+            continue
+        pass_count = votes.count(REVIEW_STATUS_PASS)
+        fail_count = votes.count(REVIEW_STATUS_FAIL)
+        if pass_count == REQUIRED_VOTES:
+            result[img_id] = REVIEW_STATUS_PASS
+        elif fail_count == REQUIRED_VOTES:
+            result[img_id] = REVIEW_STATUS_FAIL
+        else:
+            result[img_id] = REVIEW_STATUS_DISPUTED
+    return result
+
 def get_disputed_images() -> List[dict]:
     """获取所有有争议的图片"""
     conn = get_db()
