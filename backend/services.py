@@ -499,7 +499,6 @@ def get_image_final_status(image_id: int) -> Optional[str]:
     """获取图片最终审核状态
     - 3人投票全部通过 = pass
     - 3人投票有分歧（有通过也有不通过）= disputed
-    注意：只取前 REQUIRED_VOTES 条投票记录
     - 3人投票全部不通过 = fail
     """
     conn = get_db()
@@ -515,12 +514,19 @@ def get_image_final_status(image_id: int) -> Optional[str]:
     votes = [row['status'] for row in cursor.fetchall()]
     conn.close()
     
+    return _calculate_final_status(votes)
+
+
+
+
+def _calculate_final_status(votes):
+    """Helper: Calculate final status from votes list.
+    Shared logic between single and batch functions.
+    """
     if len(votes) < REQUIRED_VOTES:
         return None
-    
     pass_count = votes.count(REVIEW_STATUS_PASS)
     fail_count = votes.count(REVIEW_STATUS_FAIL)
-    
     if pass_count == REQUIRED_VOTES:
         return REVIEW_STATUS_PASS
     elif fail_count == REQUIRED_VOTES:
@@ -528,6 +534,68 @@ def get_image_final_status(image_id: int) -> Optional[str]:
     else:
         return REVIEW_STATUS_DISPUTED
 
+
+def get_image_final_statuses_batch(image_ids):
+    """Batch get final status for multiple images.
+    Returns: {image_id: status} dict, None means review not completed.
+    """
+    if not image_ids:
+        return {}
+    
+    # Validate and normalize all IDs to integers, then deduplicate
+    validated_ids = []
+    skipped_ids = []
+    seen_ids = set()
+    for img_id in image_ids:
+        try:
+            int_id = int(img_id)
+            if int_id not in seen_ids:
+                validated_ids.append(int_id)
+                seen_ids.add(int_id)
+        except (TypeError, ValueError):
+            skipped_ids.append(img_id)
+    
+    if skipped_ids:
+        log_message(f"Skipped invalid image IDs: {skipped_ids}")
+    
+    if not validated_ids:
+        return {}
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        # Chunk validated_ids to avoid SQLite parameter limits
+        batch_size = 800
+        all_votes = []
+        for i in range(0, len(validated_ids), batch_size):
+            batch_ids = validated_ids[i:i + batch_size]
+            placeholders = ','.join('?' * len(batch_ids))
+            # Note: placeholders is safe (just '?' repeated), actual values use parameterized query
+            sql = (
+                'SELECT image_id, status FROM reviews '
+                'WHERE image_id IN (' + placeholders + ') '
+                'AND status != ? '
+                'ORDER BY image_id, reviewed_at ASC, id ASC'
+            )
+            cursor.execute(sql, (*batch_ids, REVIEW_STATUS_SKIP))
+            all_votes.extend(cursor.fetchall())
+    finally:
+        conn.close()
+    # Group votes by image and limit to REQUIRED_VOTES per image
+    votes_by_image = {}
+    for row in all_votes:
+        img_id = row['image_id']
+        if img_id not in votes_by_image:
+            votes_by_image[img_id] = []
+        # Limit votes per image to match single-query behavior
+        if len(votes_by_image[img_id]) < REQUIRED_VOTES:
+            votes_by_image[img_id].append(row['status'])
+    
+    # Calculate final status for each image using shared helper
+    result = {}
+    for img_id in validated_ids:
+        votes = votes_by_image.get(img_id, [])
+        result[img_id] = _calculate_final_status(votes)
+    return result
 
 def get_disputed_images() -> List[dict]:
     """获取所有有争议的图片"""

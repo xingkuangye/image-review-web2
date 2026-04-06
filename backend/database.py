@@ -6,7 +6,13 @@ import os
 DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'review.db')
 
 def get_db():
-    conn = sqlite3.connect(DATABASE_PATH)
+    """Get a database connection.
+    Each call creates a new independent connection, making it safe for use in
+    thread executors (run_in_executor). SQLite connections cannot be shared across
+    threads by default, but by creating fresh connections per call, we ensure
+    thread safety.
+    """
+    conn = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
