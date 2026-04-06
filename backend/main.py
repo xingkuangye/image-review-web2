@@ -254,6 +254,53 @@ async def download_image(image_id: int):
     return FileResponse(image['path'])
 
 
+
+def _compress_image(img, max_size=500*1024, min_quality=20, min_width=200, max_iterations=15):
+    """压缩图片到指定大小限制内。
+    
+    Args:
+        img: PIL Image对象
+        max_size: 最大文件大小（字节），默认500KB
+        min_quality: 最低质量阈值，默认20
+        min_width: 最小宽度阈值，默认200px
+        max_iterations: 最大迭代次数，默认15
+    
+    Returns:
+        PIL Image对象
+    """
+    quality = 85
+    iterations = 0
+    
+    while iterations < max_iterations:
+        iterations += 1
+        output = io.BytesIO()
+        img.save(output, format='JPEG', quality=quality, optimize=True)
+        
+        if output.tell() <= max_size:
+            return img
+        
+        # 达到质量下限，先尝试缩小尺寸
+        if quality <= min_quality and img.size[0] > min_width:
+            new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+            quality = min(quality + 10, 70) if iterations > 3 else quality
+            continue
+        
+        # 降低质量
+        if quality > min_quality:
+            quality -= 10
+        elif img.size[0] > min_width:
+            new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+        else:
+            break
+    
+    # 最终兜底
+    output = io.BytesIO()
+    img.save(output, format='JPEG', quality=min_quality, optimize=True)
+    return img
+
+
 @app.get("/api/image/{image_id}/thumbnail")
 async def get_thumbnail(image_id: int):
     """获取压缩缩略图，确保文件小于500KB"""
@@ -282,29 +329,12 @@ async def get_thumbnail(image_id: int):
                 new_height = int(height * ratio)
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-            # 压缩到500KB以内，通过逐步降低质量实现
-            MAX_SIZE = 500 * 1024  # 500KB
+            # 压缩到500KB以内
+            img = _compress_image(img)
+            
+            # 保存最终结果
             output = io.BytesIO()
-            quality = 85
-            img.save(output, format='JPEG', quality=quality, optimize=True)
-            
-            # 如果超过500KB，逐步降低质量
-            while output.tell() > MAX_SIZE and quality > 30:
-                output.truncate(0)
-                output.seek(0)
-                quality -= 10
-                img.save(output, format='JPEG', quality=quality, optimize=True)
-            
-            # 如果仍然超过500KB，可能图片尺寸太大，需要进一步缩小
-            while output.tell() > MAX_SIZE and img.size[0] > 400:
-                output.truncate(0)
-                output.seek(0)
-                # 缩小到原来的75%
-                new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
-                img = img.resize(new_size, Image.Resampling.LANCZOS)
-                quality = min(quality, 70)
-                img.save(output, format='JPEG', quality=quality, optimize=True)
-            
+            img.save(output, format='JPEG', quality=50, optimize=True)
             output.seek(0)
 
         return StreamingResponse(output, media_type="image/jpeg")
