@@ -569,6 +569,7 @@ def get_image_final_statuses_batch(image_ids):
         for i in range(0, len(validated_ids), batch_size):
             batch_ids = validated_ids[i:i + batch_size]
             placeholders = ','.join('?' * len(batch_ids))
+            # Note: placeholders is safe (just '?' repeated), actual values use parameterized query
             sql = (
                 'SELECT image_id, status FROM reviews '
                 'WHERE image_id IN (' + placeholders + ') '
