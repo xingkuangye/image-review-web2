@@ -532,13 +532,25 @@ def get_image_final_status(image_id: int) -> Optional[str]:
 
 
 def get_image_final_statuses_batch(image_ids):
+    """Batch get final status for multiple images.
+    Returns: {image_id: status} dict, None means review not completed.
+    """
     if not image_ids:
+        return {}
+    # Validate all IDs are integers to prevent SQL injection
+    validated_ids = []
+    for img_id in image_ids:
+        try:
+            validated_ids.append(int(img_id))
+        except (TypeError, ValueError):
+            continue  # Skip invalid IDs
+    if not validated_ids:
         return {}
     conn = get_db()
     cursor = conn.cursor()
-    placeholders = ','.join('?' * len(image_ids))
+    placeholders = ','.join('?' * len(validated_ids))
     sql = 'SELECT image_id, status FROM reviews WHERE image_id IN (' + placeholders + ') AND status != ? ORDER BY image_id, reviewed_at ASC, id ASC'
-    cursor.execute(sql, (*image_ids, REVIEW_STATUS_SKIP))
+    cursor.execute(sql, (*validated_ids, REVIEW_STATUS_SKIP))
     all_votes = cursor.fetchall()
     conn.close()
     votes_by_image = {}
