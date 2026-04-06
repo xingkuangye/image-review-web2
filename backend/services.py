@@ -542,12 +542,16 @@ def get_image_final_statuses_batch(image_ids):
     if not image_ids:
         return {}
     
-    # Validate and normalize all IDs to integers
+    # Validate and normalize all IDs to integers, then deduplicate
     validated_ids = []
     skipped_ids = []
+    seen_ids = set()
     for img_id in image_ids:
         try:
-            validated_ids.append(int(img_id))
+            int_id = int(img_id)
+            if int_id not in seen_ids:
+                validated_ids.append(int_id)
+                seen_ids.add(int_id)
         except (TypeError, ValueError):
             skipped_ids.append(img_id)
     
@@ -557,19 +561,34 @@ def get_image_final_statuses_batch(image_ids):
     if not validated_ids:
         return {}
     conn = get_db()
-    cursor = conn.cursor()
-    placeholders = ','.join('?' * len(validated_ids))
-    sql = 'SELECT image_id, status FROM reviews WHERE image_id IN (' + placeholders + ') AND status != ? ORDER BY image_id, reviewed_at ASC, id ASC'
-    cursor.execute(sql, (*validated_ids, REVIEW_STATUS_SKIP))
-    all_votes = cursor.fetchall()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        # Chunk validated_ids to avoid SQLite parameter limits
+        batch_size = 800
+        all_votes = []
+        for i in range(0, len(validated_ids), batch_size):
+            batch_ids = validated_ids[i:i + batch_size]
+            placeholders = ','.join('?' * len(batch_ids))
+            sql = (
+                'SELECT image_id, status FROM reviews '
+                'WHERE image_id IN (' + placeholders + ') '
+                'AND status != ? '
+                'ORDER BY image_id, reviewed_at ASC, id ASC'
+            )
+            cursor.execute(sql, (*batch_ids, REVIEW_STATUS_SKIP))
+            all_votes.extend(cursor.fetchall())
+    finally:
+        conn.close()
+    # Group votes by image and limit to REQUIRED_VOTES per image
     votes_by_image = {}
     for row in all_votes:
         img_id = row['image_id']
         if img_id not in votes_by_image:
             votes_by_image[img_id] = []
-        votes_by_image[img_id].append(row['status'])
-    result = {}
+        # Limit votes per image to match single-query behavior
+        if len(votes_by_image[img_id]) < REQUIRED_VOTES:
+            votes_by_image[img_id].append(row['status'])
+    
     # Calculate final status for each image using shared helper
     result = {}
     for img_id in validated_ids:
