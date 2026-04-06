@@ -266,18 +266,28 @@ def _compress_image(img, max_size=500*1024, min_quality=20, min_width=200, max_i
         max_iterations: 最大迭代次数，默认15
     
     Returns:
-        PIL Image对象
+        bytes: 压缩后的JPEG字节数据
     """
     quality = 85
     iterations = 0
+    best_bytes = None
+    best_size = float('inf')
     
     while iterations < max_iterations:
         iterations += 1
         output = io.BytesIO()
         img.save(output, format='JPEG', quality=quality, optimize=True)
+        output.seek(0)
+        data = output.getvalue()
+        size = len(data)
         
-        if output.tell() <= max_size:
-            return img
+        if size <= max_size:
+            return data
+        
+        # 记录当前最佳结果
+        if size < best_size:
+            best_bytes = data
+            best_size = size
         
         # 达到质量下限，先尝试缩小尺寸
         if quality <= min_quality and img.size[0] > min_width:
@@ -295,10 +305,14 @@ def _compress_image(img, max_size=500*1024, min_quality=20, min_width=200, max_i
         else:
             break
     
-    # 最终兜底
+    # 如果所有迭代都无法满足大小要求，返回最佳结果
+    if best_bytes is not None:
+        return best_bytes
+    
+    # 最终兜底：强制使用最低质量
     output = io.BytesIO()
     img.save(output, format='JPEG', quality=min_quality, optimize=True)
-    return img
+    return output.getvalue()
 
 
 @app.get("/api/image/{image_id}/thumbnail")
@@ -329,15 +343,17 @@ async def get_thumbnail(image_id: int):
                 new_height = int(height * ratio)
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-            # 压缩到500KB以内
-            img = _compress_image(img)
-            
-            # 保存最终结果
-            output = io.BytesIO()
-            img.save(output, format='JPEG', quality=50, optimize=True)
-            output.seek(0)
+            # 压缩到500KB以内，直接返回字节数据
+            compressed_data = _compress_image(img)
+            return StreamingResponse(
+                io.BytesIO(compressed_data),
+                media_type="image/jpeg"
+            )
 
-        return StreamingResponse(output, media_type="image/jpeg")
+    except Exception:
+        # 记录缩略图处理失败的异常，避免静默失败
+        logger.exception("缩略图生成失败 %s, 返回原图", original_path)
+        return FileResponse(original_path)
     except Exception:
         # 记录缩略图处理失败的异常，避免静默失败
         logger.exception("缩略图生成失败 %s, 返回原图", original_path)
