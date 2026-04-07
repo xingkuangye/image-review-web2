@@ -1,8 +1,7 @@
 /* ========== 基础样式 ========== */
 :root {
     --mobile-button-offset: 140px;
-    --navbar-height: 60px;
-    --navbar-height-mobile: 50px;
+    --mobile-reserved-height: 100px;  /* navbar + controls space on mobile */
 }
 
 * {
@@ -682,7 +681,7 @@ body {
     
     /* 主内容区 - 图片从顶部开始 */
     .main-content {
-        height: calc(100vh - var(--navbar-height-mobile));
+        height: calc(100vh - var(--mobile-reserved-height));
         padding: 10px;
         align-items: flex-start;
         justify-content: center;
@@ -698,7 +697,7 @@ body {
     }
     
     #reviewImage {
-        max-height: calc(100vh - 200px);
+        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
     }
     
     /* 按钮位置调整 */
@@ -798,7 +797,7 @@ body {
     
     /* 主内容区 - 图片从顶部开始 */
     .main-content {
-        height: calc(100vh - var(--navbar-height-mobile));
+        height: calc(100vh - var(--mobile-reserved-height));
         padding: 8px;
         align-items: flex-start;
         justify-content: center;
@@ -814,7 +813,7 @@ body {
     }
     
     #reviewImage {
-        max-height: calc(100vh - 180px);
+        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
     }
     
     /* 按钮 - 更大的触摸区域 */
