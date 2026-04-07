@@ -197,13 +197,15 @@ def get_all_roles() -> List[RoleResponse]:
             r.id, r.name, r.image_path, r.avatar_path,
             COUNT(DISTINCT i.id) as total_images,
             COALESCE((
-                SELECT COUNT(*)
-                FROM reviews rev
-                JOIN images img ON rev.image_id = img.id
-                WHERE img.role_id = r.id
-                AND rev.status != 'skip'
-                GROUP BY rev.image_id
-                HAVING COUNT(*) >= ? AND SUM(CASE WHEN rev.status = 'pass' THEN 1 ELSE 0 END) = COUNT(*)
+                SELECT COUNT(*) FROM (
+                    SELECT rev.image_id
+                    FROM reviews rev
+                    JOIN images img ON rev.image_id = img.id
+                    WHERE img.role_id = r.id
+                    AND rev.status != 'skip'
+                    GROUP BY rev.image_id
+                    HAVING COUNT(*) >= ? AND SUM(CASE WHEN rev.status = 'pass' THEN 1 ELSE 0 END) = COUNT(*)
+                )
             ), 0) as completed_images
         FROM roles r
         LEFT JOIN images i ON r.id = i.role_id
@@ -262,9 +264,19 @@ def refresh_role_images(role_id: int):
         return False
     
     # 删除这些图片的审核记录
+    # 安全：image_ids 来自数据库查询的整数，已通过参数化查询防止注入
+    # placeholders 只是 '?' 重复，无用户输入拼接
     if image_ids:
-        placeholders = ','.join('?' * len(image_ids))
-        cursor.execute(f"DELETE FROM reviews WHERE image_id IN ({placeholders})", image_ids)
+        # 输入验证：确保所有ID都是整数
+        validated_ids = []
+        for img_id in image_ids:
+            try:
+                validated_ids.append(int(img_id))
+            except (TypeError, ValueError):
+                log_message(f"跳过无效图片ID: {img_id}")
+        if validated_ids:
+            placeholders = ','.join('?' * len(validated_ids))
+            cursor.execute(f"DELETE FROM reviews WHERE image_id IN ({placeholders})", validated_ids)
     
     # 删除旧图片记录
     cursor.execute("DELETE FROM images WHERE role_id = ?", (role_id,))

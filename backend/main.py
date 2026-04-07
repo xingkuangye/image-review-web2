@@ -449,9 +449,13 @@ async def admin_refresh_role(role_id: int, x_admin_password: str = Header(None))
     verify_admin(x_admin_password)
     # 使用线程池执行器避免阻塞事件循环
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, refresh_role_images, role_id)
-    log_message(f"刷新角色 {role_id} 图片")
-    return {"success": True}
+    success = await loop.run_in_executor(None, refresh_role_images, role_id)
+    if success:
+        log_message(f"刷新角色 {role_id} 图片成功")
+        return {"success": True}
+    else:
+        log_message(f"刷新角色 {role_id} 图片失败")
+        return {"success": False, "error": "刷新失败，可能是角色不存在或路径无效"}
 
 @app.put("/api/admin/roles/{role_id}")
 async def admin_update_role(
@@ -498,9 +502,12 @@ async def admin_update_role(
     conn.commit()
     
     # 如果需要刷新图片，使用线程池执行器避免阻塞
+    refresh_success = True
     if refresh_images and refresh_images.lower() == 'true':
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, refresh_role_images, role_id)
+        refresh_success = await loop.run_in_executor(None, refresh_role_images, role_id)
+        if not refresh_success:
+            log_message(f"修改角色 {role_id} 时刷新图片失败")
     
     conn.close()
     log_message(f"修改角色 {role_id}: {name} (路径: {image_path})")
