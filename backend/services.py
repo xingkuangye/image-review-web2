@@ -186,40 +186,49 @@ def create_role(name: str, image_path: str, avatar_path: str = None) -> RoleResp
         raise e
 
 def get_all_roles() -> List[RoleResponse]:
-    """获取所有角色（优化：使用JOIN一次性查询）"""
+    """获取所有角色（优化：使用JOIN一次性查询，新投票规则）"""
+
     conn = get_db()
     cursor = conn.cursor()
-    
-    # 优化：使用单个查询获取所有数据，避免N+1问题
-    cursor.execute('''
+
+    # 新投票规则：统计3人全部通过的图片数量
+    cursor.execute("""
         SELECT 
             r.id, r.name, r.image_path, r.avatar_path,
             COUNT(DISTINCT i.id) as total_images,
-            SUM(CASE WHEN rev.status = 'pass' THEN 1 ELSE 0 END) as pass_count,
-            SUM(CASE WHEN rev.status = 'fail' THEN 1 ELSE 0 END) as fail_count
+            COALESCE((
+                SELECT COUNT(*) FROM (
+                    SELECT rev.image_id
+                    FROM reviews rev
+                    JOIN images img ON rev.image_id = img.id
+                    WHERE img.role_id = r.id
+                    AND rev.status != 'skip'
+                    GROUP BY rev.image_id
+                    HAVING COUNT(*) >= ? AND SUM(CASE WHEN rev.status = 'pass' THEN 1 ELSE 0 END) = COUNT(*)
+                ) AS completed
+            ), 0) as completed_images
         FROM roles r
         LEFT JOIN images i ON r.id = i.role_id
-        LEFT JOIN reviews rev ON i.id = rev.image_id
         GROUP BY r.id
-    ''')
-    
+    """, (REQUIRED_VOTES,))
+
     roles = []
     for row in cursor.fetchall():
-        pass_count = row['pass_count'] or 0
-        fail_count = row['fail_count'] or 0
+        completed_images = row['completed_images'] or 0
         roles.append(RoleResponse(
             id=row['id'],
             name=row['name'],
             image_path=row['image_path'],
             avatar_path=row['avatar_path'],
             total_images=row['total_images'] or 0,
-            reviewed_images=pass_count + fail_count,
-            pass_count=pass_count,
-            fail_count=fail_count
+            reviewed_images=completed_images,
+            pass_count=completed_images,
+            fail_count=0
         ))
-    
+
     conn.close()
     return roles
+
 
 def delete_role(role_id: int):
     """删除角色"""
@@ -236,41 +245,89 @@ def refresh_role_images(role_id: int):
     cursor = conn.cursor()
     cursor.execute("SELECT image_path FROM roles WHERE id = ?", (role_id,))
     role = cursor.fetchone()
+
+    if not role:
+        conn.close()
+        log_message(f"刷新角色失败: 角色 {role_id} 不存在")
+        return False
     
-    if role:
-        # 删除旧图片记录
-        cursor.execute("DELETE FROM images WHERE role_id = ?", (role_id,))
-        # 重新扫描
-        scan_and_add_images(role_id, role['image_path'])
+    image_path = role['image_path']
     
+    # 先获取该角色的所有图片ID（用于删除审核记录）
+    cursor.execute("SELECT id FROM images WHERE role_id = ?", (role_id,))
+    image_ids = [row['id'] for row in cursor.fetchall()]
+    
+    # 检查新路径是否存在，如果不存在则不删除旧数据
+    if not os.path.exists(image_path):
+        conn.close()
+        log_message(f"刷新角色失败: 新路径不存在 {image_path}")
+        return False
+    
+    # 删除这些图片的审核记录
+    # 安全：image_ids 来自数据库查询的整数，已通过参数化查询防止注入
+    # placeholders 只是 '?' 重复，无用户输入拼接
+    if image_ids:
+        # 输入验证：确保所有ID都是整数
+        validated_ids = []
+        for img_id in image_ids:
+            try:
+                validated_ids.append(int(img_id))
+            except (TypeError, ValueError):
+                log_message(f"跳过无效图片ID: {img_id}")
+        if validated_ids:
+            # 使用 executemany 批量删除，避免多次往返数据库，同时使用参数化查询防止注入
+            cursor.executemany(
+                "DELETE FROM reviews WHERE image_id = ?",
+                [(img_id,) for img_id in validated_ids],
+            )
+    
+    # 删除旧图片记录
+    cursor.execute("DELETE FROM images WHERE role_id = ?", (role_id,))
     conn.commit()
     conn.close()
+    
+    # 重新扫描（在新连接中执行，避免阻塞）
+    scan_and_add_images(role_id, image_path)
+    
+    log_message(f"刷新角色 {role_id} 完成")
+    return True
 
 # ============ 图片服务 ============
 
 def scan_and_add_images(role_id: int, base_path: str):
     """扫描目录添加图片"""
+    # 验证路径存在，避免 os.walk 在无效路径上卡死
+    if not os.path.exists(base_path):
+        log_message(f"扫描图片失败: 路径不存在 {base_path}")
+        return 0
+    
     conn = get_db()
     cursor = conn.cursor()
     
     supported_formats = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
     now = datetime.now().isoformat()
     
-    for root, dirs, files in os.walk(base_path):
-        for file in files:
-            ext = os.path.splitext(file)[1].lower()
-            if ext in supported_formats:
-                full_path = os.path.join(root, file)
-                try:
-                    cursor.execute(
-                        "INSERT OR IGNORE INTO images (path, role_id, created_at) VALUES (?, ?, ?)",
-                        (full_path, role_id, now)
-                    )
-                except Exception as e:
-                    log_message(f"扫描图片时发生错误: {full_path} - {str(e)}")
+    added_count = 0
+    try:
+        for root, dirs, files in os.walk(base_path):
+            for file in files:
+                ext = os.path.splitext(file)[1].lower()
+                if ext in supported_formats:
+                    full_path = os.path.join(root, file)
+                    try:
+                        cursor.execute(
+                            "INSERT OR IGNORE INTO images (path, role_id, created_at) VALUES (?, ?, ?)",
+                            (full_path, role_id, now)
+                        )
+                        if cursor.rowcount > 0:
+                            added_count += 1
+                    except Exception as e:
+                        log_message(f"扫描图片时发生错误: {full_path} - {str(e)}")
+    finally:
+        conn.commit()
+        conn.close()
     
-    conn.commit()
-    conn.close()
+    return added_count
 
 def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optional[ImageResponse]:
     """获取待审核图片"""

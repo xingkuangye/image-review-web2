@@ -63,11 +63,17 @@ async function loadStats() {
         const reviewedCount = document.getElementById('reviewedCount');
         const totalCount = document.getElementById('totalCount');
         const userReviewCount = document.getElementById('userReviewCount');
+        const completeCount = document.getElementById('completeCount');
+        const totalImages = document.getElementById('totalImages');
         
         if (progressPercent) progressPercent.textContent = (stats.progress_percent || 0).toFixed(1);
         if (progressFill) progressFill.style.width = (stats.progress_percent || 0) + '%';
         if (reviewedCount) reviewedCount.textContent = stats.reviewed_images || 0;
         if (totalCount) totalCount.textContent = stats.total_images || 0;
+        
+        // 更新完成审核数
+        if (completeCount) completeCount.textContent = stats.completed_images || 0;
+        if (totalImages) totalImages.textContent = stats.total_images || 0;
         
         // 更新用户审核数
         if (currentUser) {
