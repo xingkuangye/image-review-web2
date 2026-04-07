@@ -275,9 +275,11 @@ def refresh_role_images(role_id: int):
             except (TypeError, ValueError):
                 log_message(f"跳过无效图片ID: {img_id}")
         if validated_ids:
-            # 使用 executemany 批量删除，避免字符串拼接
-            for img_id in validated_ids:
-                cursor.execute("DELETE FROM reviews WHERE image_id = ?", (img_id,))
+            # 使用 executemany 批量删除，避免多次往返数据库，同时使用参数化查询防止注入
+            cursor.executemany(
+                "DELETE FROM reviews WHERE image_id = ?",
+                [(img_id,) for img_id in validated_ids],
+            )
     
     # 删除旧图片记录
     cursor.execute("DELETE FROM images WHERE role_id = ?", (role_id,))

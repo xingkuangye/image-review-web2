@@ -511,6 +511,10 @@ async def admin_update_role(
     
     conn.close()
     log_message(f"修改角色 {role_id}: {name} (路径: {image_path})")
+    
+    # 返回包括刷新状态的结果
+    if not refresh_success:
+        return {"success": True, "refresh_success": False, "error": "角色信息已更新，但刷新图片失败，可能是路径无效"}
     return {"success": True}
 
 @app.delete("/api/admin/roles/{role_id}")
