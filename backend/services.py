@@ -244,50 +244,75 @@ def refresh_role_images(role_id: int):
     cursor.execute("SELECT image_path FROM roles WHERE id = ?", (role_id,))
     role = cursor.fetchone()
 
-    if role:
-        # 先获取该角色的所有图片ID
-        cursor.execute("SELECT id FROM images WHERE role_id = ?", (role_id,))
-        image_ids = [row['id'] for row in cursor.fetchall()]
-        
-        # 删除这些图片的审核记录
-        if image_ids:
-            placeholders = ','.join('?' * len(image_ids))
-            cursor.execute(f"DELETE FROM reviews WHERE image_id IN ({placeholders})", image_ids)
-        
-        # 删除旧图片记录
-        cursor.execute("DELETE FROM images WHERE role_id = ?", (role_id,))
-        
-        # 重新扫描
-        scan_and_add_images(role_id, role['image_path'])
-
+    if not role:
+        conn.close()
+        log_message(f"刷新角色失败: 角色 {role_id} 不存在")
+        return False
+    
+    image_path = role['image_path']
+    
+    # 先获取该角色的所有图片ID（用于删除审核记录）
+    cursor.execute("SELECT id FROM images WHERE role_id = ?", (role_id,))
+    image_ids = [row['id'] for row in cursor.fetchall()]
+    
+    # 检查新路径是否存在，如果不存在则不删除旧数据
+    if not os.path.exists(image_path):
+        conn.close()
+        log_message(f"刷新角色失败: 新路径不存在 {image_path}")
+        return False
+    
+    # 删除这些图片的审核记录
+    if image_ids:
+        placeholders = ','.join('?' * len(image_ids))
+        cursor.execute(f"DELETE FROM reviews WHERE image_id IN ({placeholders})", image_ids)
+    
+    # 删除旧图片记录
+    cursor.execute("DELETE FROM images WHERE role_id = ?", (role_id,))
     conn.commit()
     conn.close()
+    
+    # 重新扫描（在新连接中执行，避免阻塞）
+    scan_and_add_images(role_id, image_path)
+    
+    log_message(f"刷新角色 {role_id} 完成")
+    return True
 
 # ============ 图片服务 ============
 
 def scan_and_add_images(role_id: int, base_path: str):
     """扫描目录添加图片"""
+    # 验证路径存在，避免 os.walk 在无效路径上卡死
+    if not os.path.exists(base_path):
+        log_message(f"扫描图片失败: 路径不存在 {base_path}")
+        return 0
+    
     conn = get_db()
     cursor = conn.cursor()
     
     supported_formats = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
     now = datetime.now().isoformat()
     
-    for root, dirs, files in os.walk(base_path):
-        for file in files:
-            ext = os.path.splitext(file)[1].lower()
-            if ext in supported_formats:
-                full_path = os.path.join(root, file)
-                try:
-                    cursor.execute(
-                        "INSERT OR IGNORE INTO images (path, role_id, created_at) VALUES (?, ?, ?)",
-                        (full_path, role_id, now)
-                    )
-                except Exception as e:
-                    log_message(f"扫描图片时发生错误: {full_path} - {str(e)}")
+    added_count = 0
+    try:
+        for root, dirs, files in os.walk(base_path):
+            for file in files:
+                ext = os.path.splitext(file)[1].lower()
+                if ext in supported_formats:
+                    full_path = os.path.join(root, file)
+                    try:
+                        cursor.execute(
+                            "INSERT OR IGNORE INTO images (path, role_id, created_at) VALUES (?, ?, ?)",
+                            (full_path, role_id, now)
+                        )
+                        if cursor.rowcount > 0:
+                            added_count += 1
+                    except Exception as e:
+                        log_message(f"扫描图片时发生错误: {full_path} - {str(e)}")
+    finally:
+        conn.commit()
+        conn.close()
     
-    conn.commit()
-    conn.close()
+    return added_count
 
 def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optional[ImageResponse]:
     """获取待审核图片"""
