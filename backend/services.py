@@ -469,7 +469,7 @@ def get_overall_stats() -> StatsResponse:
             SUM(fail_count) as fail_count,
             SUM(skip_count) as skip_count,
             SUM(vote_count) as total_reviews,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? THEN image_id END) as completed_images
+            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? AND fail_count = 0 THEN image_id END) as completed_images
         FROM (
             SELECT 
                 image_id,
@@ -516,7 +516,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
             SUM(fail_count) as fail_count,
             SUM(skip_count) as skip_count,
             SUM(vote_count) as total_reviews,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? THEN image_id END) as completed_images
+            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? AND fail_count = 0 THEN image_id END) as completed_images
         FROM (
             SELECT 
                 r.image_id,
