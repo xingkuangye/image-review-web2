@@ -205,7 +205,7 @@ def get_all_roles() -> List[RoleResponse]:
                     AND rev.status != 'skip'
                     GROUP BY rev.image_id
                     HAVING COUNT(*) >= ? AND SUM(CASE WHEN rev.status = 'pass' THEN 1 ELSE 0 END) = COUNT(*)
-                )
+                ) AS completed
             ), 0) as completed_images
         FROM roles r
         LEFT JOIN images i ON r.id = i.role_id
@@ -275,8 +275,9 @@ def refresh_role_images(role_id: int):
             except (TypeError, ValueError):
                 log_message(f"跳过无效图片ID: {img_id}")
         if validated_ids:
-            placeholders = ','.join('?' * len(validated_ids))
-            cursor.execute(f"DELETE FROM reviews WHERE image_id IN ({placeholders})", validated_ids)
+            # 使用 executemany 批量删除，避免字符串拼接
+            for img_id in validated_ids:
+                cursor.execute("DELETE FROM reviews WHERE image_id = ?", (img_id,))
     
     # 删除旧图片记录
     cursor.execute("DELETE FROM images WHERE role_id = ?", (role_id,))
