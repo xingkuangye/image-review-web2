@@ -69,8 +69,8 @@ async function loadStats() {
         if (progressPercent) progressPercent.textContent = (stats.progress_percent || 0).toFixed(1);
         if (progressFill) progressFill.style.width = (stats.progress_percent || 0) + '%';
         if (reviewedCount) reviewedCount.textContent = stats.reviewed_images || 0;
-        // 投票进度条显示总票数 = 图片数 × 3
-        if (totalCount) totalCount.textContent = (stats.total_images || 0) * 3;
+        // 投票进度条显示总票数 = 图片数 × 每张图片需要的票数
+        if (totalCount) totalCount.textContent = (stats.total_images || 0) * appConfig.required_votes;
         
         // 更新完成审核数
         if (completeCount) completeCount.textContent = stats.completed_images || 0;
@@ -451,6 +451,9 @@ function parseMarkdown(text) {
 }
 
 // ========== 页面加载时获取配置 ==========
+// 全局配置
+let appConfig = { required_votes: 3 };
+
 async function loadSettings() {
     try {
         const response = await fetch('/api/settings');
@@ -466,6 +469,17 @@ async function loadSettings() {
         if (data.icon) {
             const iconEl = document.getElementById('pageIcon');
             if (iconEl) iconEl.href = data.icon;
+        }
+        
+        // 获取投票配置
+        try {
+            const votesRes = await fetch('/api/settings/votes');
+            const votesData = await votesRes.json();
+            if (votesData.required_votes) {
+                appConfig.required_votes = votesData.required_votes;
+            }
+        } catch (e) {
+            console.log('使用默认投票数');
         }
     } catch (e) {
         console.error('加载配置失败:', e);

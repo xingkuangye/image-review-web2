@@ -391,6 +391,12 @@ async def get_title():
     """获取页面标题"""
     return {"title": get_setting("title") or "图片审核系统"}
 
+@app.get("/api/settings/votes")
+async def get_votes_config():
+    """获取投票配置"""
+    from backend.services import REQUIRED_VOTES
+    return {"required_votes": REQUIRED_VOTES}
+
 @app.get("/api/settings/icon")
 async def get_icon():
     """获取页面图标"""
