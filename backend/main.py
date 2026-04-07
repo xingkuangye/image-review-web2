@@ -447,7 +447,9 @@ async def admin_get_roles(x_admin_password: str = Header(None)):
 async def admin_refresh_role(role_id: int, x_admin_password: str = Header(None)):
     """刷新角色图片"""
     verify_admin(x_admin_password)
-    refresh_role_images(role_id)
+    # 使用线程池执行器避免阻塞事件循环
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, refresh_role_images, role_id)
     log_message(f"刷新角色 {role_id} 图片")
     return {"success": True}
 
@@ -495,9 +497,10 @@ async def admin_update_role(
     )
     conn.commit()
     
-    # 如果需要刷新图片
+    # 如果需要刷新图片，使用线程池执行器避免阻塞
     if refresh_images and refresh_images.lower() == 'true':
-        refresh_role_images(role_id)
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, refresh_role_images, role_id)
     
     conn.close()
     log_message(f"修改角色 {role_id}: {name} (路径: {image_path})")
