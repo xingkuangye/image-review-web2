@@ -255,12 +255,15 @@ async def download_image(image_id: int):
 
 
 
-def _compress_image(img, max_size=500*1024, min_quality=20, min_width=200, max_iterations=15):
+def _compress_image(img, max_size=500*1024, initial_quality=85, quality_step=10,
+                       min_quality=20, min_width=200, max_iterations=15):
     """压缩图片到指定大小限制内。
     
     Args:
-        img: PIL Image对象
+        img: PIL Image对象（不会修改原图）
         max_size: 最大文件大小（字节），默认500KB
+        initial_quality: 初始压缩质量，默认85
+        quality_step: 质量递减步长，默认10
         min_quality: 最低质量阈值，默认20
         min_width: 最小宽度阈值，默认200px
         max_iterations: 最大迭代次数，默认15
@@ -268,7 +271,9 @@ def _compress_image(img, max_size=500*1024, min_quality=20, min_width=200, max_i
     Returns:
         bytes: 压缩后的JPEG字节数据
     """
-    quality = 85
+    # 在副本上操作，避免修改原图
+    img = img.copy()
+    quality = initial_quality
     iterations = 0
     best_bytes = None
     best_size = float('inf')
@@ -293,12 +298,12 @@ def _compress_image(img, max_size=500*1024, min_quality=20, min_width=200, max_i
         if quality <= min_quality and img.size[0] > min_width:
             new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
             img = img.resize(new_size, Image.Resampling.LANCZOS)
-            quality = min(quality + 10, 70) if iterations > 3 else quality
+            quality = min(quality + quality_step, 70) if iterations > 3 else quality
             continue
         
         # 降低质量
         if quality > min_quality:
-            quality -= 10
+            quality -= quality_step
         elif img.size[0] > min_width:
             new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
             img = img.resize(new_size, Image.Resampling.LANCZOS)
@@ -350,10 +355,6 @@ async def get_thumbnail(image_id: int):
                 media_type="image/jpeg"
             )
 
-    except Exception:
-        # 记录缩略图处理失败的异常，避免静默失败
-        logger.exception("缩略图生成失败 %s, 返回原图", original_path)
-        return FileResponse(original_path)
     except Exception:
         # 记录缩略图处理失败的异常，避免静默失败
         logger.exception("缩略图生成失败 %s, 返回原图", original_path)
