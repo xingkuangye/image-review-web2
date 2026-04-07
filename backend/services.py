@@ -186,40 +186,47 @@ def create_role(name: str, image_path: str, avatar_path: str = None) -> RoleResp
         raise e
 
 def get_all_roles() -> List[RoleResponse]:
-    """获取所有角色（优化：使用JOIN一次性查询）"""
+    """获取所有角色（优化：使用JOIN一次性查询，新投票规则）"""
+
     conn = get_db()
     cursor = conn.cursor()
-    
-    # 优化：使用单个查询获取所有数据，避免N+1问题
-    cursor.execute('''
+
+    # 新投票规则：统计3人全部通过的图片数量
+    cursor.execute("""
         SELECT 
             r.id, r.name, r.image_path, r.avatar_path,
             COUNT(DISTINCT i.id) as total_images,
-            SUM(CASE WHEN rev.status = 'pass' THEN 1 ELSE 0 END) as pass_count,
-            SUM(CASE WHEN rev.status = 'fail' THEN 1 ELSE 0 END) as fail_count
+            COALESCE((
+                SELECT COUNT(*)
+                FROM reviews rev
+                JOIN images img ON rev.image_id = img.id
+                WHERE img.role_id = r.id
+                AND rev.status != 'skip'
+                GROUP BY rev.image_id
+                HAVING COUNT(*) >= ? AND SUM(CASE WHEN rev.status = 'pass' THEN 1 ELSE 0 END) = COUNT(*)
+            ), 0) as completed_images
         FROM roles r
         LEFT JOIN images i ON r.id = i.role_id
-        LEFT JOIN reviews rev ON i.id = rev.image_id
         GROUP BY r.id
-    ''')
-    
+    """, (REQUIRED_VOTES,))
+
     roles = []
     for row in cursor.fetchall():
-        pass_count = row['pass_count'] or 0
-        fail_count = row['fail_count'] or 0
+        completed_images = row['completed_images'] or 0
         roles.append(RoleResponse(
             id=row['id'],
             name=row['name'],
             image_path=row['image_path'],
             avatar_path=row['avatar_path'],
             total_images=row['total_images'] or 0,
-            reviewed_images=pass_count + fail_count,
-            pass_count=pass_count,
-            fail_count=fail_count
+            reviewed_images=completed_images,
+            pass_count=completed_images,
+            fail_count=0
         ))
-    
+
     conn.close()
     return roles
+
 
 def delete_role(role_id: int):
     """删除角色"""
@@ -236,13 +243,23 @@ def refresh_role_images(role_id: int):
     cursor = conn.cursor()
     cursor.execute("SELECT image_path FROM roles WHERE id = ?", (role_id,))
     role = cursor.fetchone()
-    
+
     if role:
+        # 先获取该角色的所有图片ID
+        cursor.execute("SELECT id FROM images WHERE role_id = ?", (role_id,))
+        image_ids = [row['id'] for row in cursor.fetchall()]
+        
+        # 删除这些图片的审核记录
+        if image_ids:
+            placeholders = ','.join('?' * len(image_ids))
+            cursor.execute(f"DELETE FROM reviews WHERE image_id IN ({placeholders})", image_ids)
+        
         # 删除旧图片记录
         cursor.execute("DELETE FROM images WHERE role_id = ?", (role_id,))
+        
         # 重新扫描
         scan_and_add_images(role_id, role['image_path'])
-    
+
     conn.commit()
     conn.close()
 
