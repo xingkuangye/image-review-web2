@@ -474,9 +474,17 @@ async function loadSettings() {
         // 获取投票配置
         try {
             const votesRes = await fetch('/api/settings/votes');
-            const votesData = await votesRes.json();
-            if (votesData.required_votes) {
-                appConfig.required_votes = votesData.required_votes;
+            if (!votesRes.ok) {
+                let errorText = '';
+                try {
+                    errorText = await votesRes.text();
+                } catch (_) { /* ignore body read errors */ }
+                console.error('获取投票配置失败:', votesRes.status, votesRes.statusText, errorText);
+            } else {
+                const votesData = await votesRes.json();
+                if (votesData.required_votes) {
+                    appConfig.required_votes = votesData.required_votes;
+                }
             }
         } catch (e) {
             console.log('使用默认投票数');

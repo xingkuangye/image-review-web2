@@ -480,7 +480,7 @@ def get_overall_stats() -> StatsResponse:
             FROM reviews
             GROUP BY image_id
         )
-    ''', (REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
+    ''', (REQUIRED_VOTES, REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
     
     stats = cursor.fetchone()
     conn.close()
