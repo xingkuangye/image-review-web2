@@ -602,13 +602,13 @@ body {
 
 /* 平板竖屏 (768px 以下) */
 @media screen and (max-width: 768px) {
-    /* 导航栏调整 */
+    /* 导航栏调整 - 减小内边距给图片更多空间 */
     .navbar {
         flex-wrap: wrap;
         height: auto;
-        min-height: 60px;
-        padding: 10px 12px;
-        gap: 10px;
+        min-height: 50px;
+        padding: 6px 10px;
+        gap: 6px;
     }
     
     .nav-left, .nav-center, .nav-right {
@@ -639,18 +639,18 @@ body {
     }
     
     .progress-container {
-        max-width: 200px;
+        max-width: 180px;
     }
     
     .progress-label {
-        font-size: 12px;
+        font-size: 11px;
     }
     
     .complete-container {
-        font-size: 12px;
-        padding: 4px 10px;
-        margin-left: 10px;
-        margin-top: 8px;
+        font-size: 11px;
+        padding: 3px 8px;
+        margin-left: 8px;
+        margin-top: 4px;
         width: 100%;
         justify-content: center;
     }
@@ -679,10 +679,10 @@ body {
         font-size: 12px;
     }
     
-    /* 主内容区 - 使用共享CSS变量 */
+    /* 主内容区 - 减小顶部padding让图片更靠上 */
     .main-content {
-        height: calc(100vh - 100px);
-        padding: var(--mobile-top-padding) 10px 10px 10px;
+        height: calc(100vh - 80px);
+        padding: 40px 10px 10px 10px;
     }
     
     /* 图片容器 - 更大显示空间 */
@@ -780,7 +780,7 @@ body {
 @media screen and (max-width: 480px) {
     /* 导航栏进一步简化 */
     .navbar {
-        padding: 8px 10px;
+        padding: 5px 8px;
     }
     
     .progress-detail {
@@ -791,10 +791,10 @@ body {
         display: none;
     }
     
-    /* 主内容区 - 使用共享CSS变量 */
+    /* 主内容区 - 减小顶部padding让图片更靠上 */
     .main-content {
-        height: calc(100vh - 80px);
-        padding: var(--mobile-top-padding) 10px 10px 10px;
+        height: calc(100vh - 60px);
+        padding: 30px 8px 8px 8px;
     }
     
     /* 图片容器 */
