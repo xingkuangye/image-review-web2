@@ -254,9 +254,75 @@ async def download_image(image_id: int):
     return FileResponse(image['path'])
 
 
+
+def _compress_image(img, max_size=500*1024, initial_quality=85, quality_step=10,
+                       min_quality=20, min_width=200, max_iterations=15):
+    """压缩图片到指定大小限制内。
+    
+    Args:
+        img: PIL Image对象（不会修改原图）
+        max_size: 最大文件大小（字节），默认500KB
+        initial_quality: 初始压缩质量，默认85
+        quality_step: 质量递减步长，默认10
+        min_quality: 最低质量阈值，默认20
+        min_width: 最小宽度阈值，默认200px
+        max_iterations: 最大迭代次数，默认15
+    
+    Returns:
+        bytes: 压缩后的JPEG字节数据
+    """
+    # 在副本上操作，避免修改原图
+    img = img.copy()
+    quality = initial_quality
+    iterations = 0
+    best_bytes = None
+    best_size = float('inf')
+    
+    while iterations < max_iterations:
+        iterations += 1
+        output = io.BytesIO()
+        img.save(output, format='JPEG', quality=quality, optimize=True)
+        output.seek(0)
+        data = output.getvalue()
+        size = len(data)
+        
+        if size <= max_size:
+            return data
+        
+        # 记录当前最佳结果
+        if size < best_size:
+            best_bytes = data
+            best_size = size
+        
+        # 达到质量下限，先尝试缩小尺寸
+        if quality <= min_quality and img.size[0] > min_width:
+            new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+            quality = min(quality + quality_step, 70) if iterations > 3 else quality
+            continue
+        
+        # 降低质量
+        if quality > min_quality:
+            quality -= quality_step
+        elif img.size[0] > min_width:
+            new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+        else:
+            break
+    
+    # 如果所有迭代都无法满足大小要求，返回最佳结果
+    if best_bytes is not None:
+        return best_bytes
+    
+    # 最终兜底：强制使用最低质量
+    output = io.BytesIO()
+    img.save(output, format='JPEG', quality=min_quality, optimize=True)
+    return output.getvalue()
+
+
 @app.get("/api/image/{image_id}/thumbnail")
 async def get_thumbnail(image_id: int):
-    """获取压缩缩略图，减少带宽消耗"""
+    """获取压缩缩略图，确保文件小于500KB"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT path FROM images WHERE id = ?", (image_id,))
@@ -282,12 +348,13 @@ async def get_thumbnail(image_id: int):
                 new_height = int(height * ratio)
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-            # 保存到内存
-            output = io.BytesIO()
-            img.save(output, format='JPEG', quality=85, optimize=True)
-            output.seek(0)
+            # 压缩到500KB以内，直接返回字节数据
+            compressed_data = _compress_image(img)
+            return StreamingResponse(
+                io.BytesIO(compressed_data),
+                media_type="image/jpeg"
+            )
 
-        return StreamingResponse(output, media_type="image/jpeg")
     except Exception:
         # 记录缩略图处理失败的异常，避免静默失败
         logger.exception("缩略图生成失败 %s, 返回原图", original_path)
