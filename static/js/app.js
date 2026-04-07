@@ -69,7 +69,8 @@ async function loadStats() {
         if (progressPercent) progressPercent.textContent = (stats.progress_percent || 0).toFixed(1);
         if (progressFill) progressFill.style.width = (stats.progress_percent || 0) + '%';
         if (reviewedCount) reviewedCount.textContent = stats.reviewed_images || 0;
-        if (totalCount) totalCount.textContent = stats.total_images || 0;
+        // 投票进度条显示总票数 = 图片数 × 3
+        if (totalCount) totalCount.textContent = (stats.total_images || 0) * 3;
         
         // 更新完成审核数
         if (completeCount) completeCount.textContent = stats.completed_images || 0;
