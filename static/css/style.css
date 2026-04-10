@@ -599,380 +599,6 @@ body {
     cursor: not-allowed;
 }
 
-/* ========== Mobile Adaptation ========== */
-
-/* Tablet Portrait (below 768px) */
-@media screen and (max-width: 768px) {
-    /* Override bottom nav height for safe-area-inset support */
-    :root {
-        --mobile-bottom-nav-height: calc(60px + env(safe-area-inset-bottom));
-    }
-
-    /* Navbar adjustment - reduce padding for more space */
-    .navbar {
-        flex-wrap: wrap;
-        height: auto;
-        min-height: 50px;
-        padding: 6px 10px;
-        gap: 6px;
-    }
-    
-    .nav-left, .nav-center, .nav-right {
-        flex: none;
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .nav-left {
-        justify-content: flex-start;
-    }
-    
-    .nav-right {
-        justify-content: flex-end;
-    }
-    
-    .user-info {
-        gap: 10px;
-    }
-    
-    .nickname {
-        font-size: 14px;
-        padding: 4px 8px;
-    }
-    
-    .review-count {
-        font-size: 12px;
-    }
-    
-    .progress-container {
-        max-width: 180px;
-    }
-    
-    .progress-label {
-        font-size: 11px;
-    }
-    
-    .complete-container {
-        font-size: 11px;
-        padding: 3px 8px;
-        margin-left: 8px;
-        margin-top: 4px;
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .complete-count {
-        font-size: 14px;
-    }
-    
-    .nav-center {
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-    
-    .progress-container {
-        flex: 1 1 200px;
-    }
-    
-    .complete-container {
-        flex: 0 0 auto;
-        margin-left: 0;
-    }
-    
-    .btn-rule {
-        padding: 6px 12px;
-        font-size: 12px;
-    }
-    
-    /* Main content area - image from top */
-    .main-content {
-        height: calc(100vh - var(--mobile-reserved-height));
-        padding: 10px;
-        align-items: flex-start;
-        justify-content: center;
-    }
-    
-    /* Image container - full width, within safe area */
-    .image-container {
-        max-width: 100%;
-        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
-        width: 100%;
-        padding: 10px;
-        flex: none;
-        overflow: hidden;
-    }
-    
-    /* Mobile image - auto fit within safe area */
-    #reviewImage {
-        max-width: 100%;
-        max-height: calc(100vh - var(--mobile-reserved-height) - 36px);
-        width: auto;
-        height: auto;
-        object-fit: contain;
-    }
-    
-    /* Button position adjustment */
-    .btn-prev {
-        left: 10px;
-        top: 10px;
-        padding: 10px 16px;
-        font-size: 14px;
-    }
-    
-    .btn-skip {
-        right: 10px;
-        top: 10px;
-        padding: 10px 16px;
-        font-size: 14px;
-    }
-    
-    .btn-fail, .btn-pass {
-        padding: 12px 24px;
-        font-size: 16px;
-        bottom: var(--mobile-button-offset);
-        bottom: calc(var(--mobile-button-offset) + env(safe-area-inset-bottom));
-    }
-    
-    .btn-fail {
-        left: 10px;
-    }
-    
-    .btn-pass {
-        right: 10px;
-    }
-    
-    .btn-download {
-        padding: 10px 20px;
-        font-size: 14px;
-        bottom: 80px;
-    }
-    
-    .btn-role-select {
-        right: 10px;
-        bottom: 140px;
-        padding: 8px 16px;
-        font-size: 12px;
-    }
-    
-    /* Modal */
-    .modal-content {
-        width: 95%;
-        margin: 30px auto;
-        max-height: 85vh;
-    }
-    
-    .modal-content.modal-large {
-        max-width: 95%;
-    }
-    
-    .modal-body {
-        padding: 15px;
-    }
-    
-    /* Image stats */
-    .image-stats {
-        flex-wrap: wrap;
-        gap: 12px;
-        font-size: 14px;
-    }
-    
-    /* Role list */
-    .role-list {
-        max-height: 300px;
-    }
-    
-    .role-item {
-        padding: 10px;
-    }
-    
-    .role-avatar {
-        width: 40px;
-        height: 40px;
-    }
-}
-
-/* Phone Portrait (below 480px) */
-@media screen and (max-width: 480px) {
-    /* Navbar further simplified */
-    .navbar {
-        padding: 5px 8px;
-    }
-    
-    .progress-detail {
-        font-size: 11px;
-    }
-    
-    .role-progress {
-        display: none;
-    }
-    
-    /* Main content area */
-    .main-content {
-        height: calc(100vh - var(--mobile-reserved-height));
-        padding: 8px;
-        align-items: flex-start;
-        justify-content: center;
-    }
-    
-    /* Image container - within safe area */
-    .image-container {
-        max-width: 100%;
-        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
-        width: 100%;
-        padding: 8px;
-        flex: none;
-        overflow: hidden;
-    }
-    
-    /* Mobile image - auto fit */
-    #reviewImage {
-        max-width: 100%;
-        max-height: calc(100vh - var(--mobile-reserved-height) - 36px);
-        width: auto;
-        height: auto;
-        object-fit: contain;
-    }
-    
-    /* Button - larger touch area */
-    .btn {
-        padding: 14px 20px;
-        min-height: 50px;
-        touch-action: manipulation;
-    }
-    
-    .btn-prev, .btn-skip {
-        padding: 10px 14px;
-        font-size: 13px;
-        top: 5px;
-    }
-    
-    .btn-prev {
-        left: 5px;
-    }
-    
-    .btn-skip {
-        right: 5px;
-    }
-    
-    /* Bottom buttons - percentage positioning */
-    .btn-fail, .btn-pass {
-        padding: 14px 20px;
-        font-size: 15px;
-        min-width: 120px;
-        top: auto !important;
-        bottom: 10% !important;
-    }
-    
-    .btn-fail {
-        left: 2%;
-    }
-    
-    .btn-pass {
-        right: 2%;
-    }
-    
-    .btn-download {
-        top: auto !important;
-        bottom: 20% !important;
-        padding: 12px 18px;
-    }
-    
-    .btn-role-select {
-        right: 2%;
-        top: auto !important;
-        bottom: 20% !important;
-    }
-    
-    /* Modal */
-    .modal-content {
-        width: 98%;
-        margin: 20px auto;
-    }
-    
-    .modal-header h3 {
-        font-size: 16px;
-    }
-    
-    .close {
-        font-size: 20px;
-    }
-    
-    /* Image detail */
-    .image-stats {
-        font-size: 13px;
-        gap: 8px;
-    }
-    
-    .my-status {
-        font-size: 13px;
-    }
-}
-
-/* Phone Landscape */
-@media screen and (max-height: 500px) and (orientation: landscape) {
-    /* Navbar compressed */
-    .navbar {
-        height: 50px;
-        padding: 5px 12px;
-    }
-    
-    .nav-left, .nav-right {
-        flex: 0;
-    }
-    
-    .nav-center {
-        flex: 1;
-    }
-    
-    /* Main content area */
-    .main-content {
-        height: calc(100vh - 50px);
-    }
-    
-    /* Larger image display */
-    .image-container {
-        max-height: calc(100vh - 120px);
-    }
-    
-    #reviewImage {
-        max-height: calc(100vh - 120px);
-    }
-    
-    /* Button size reduced */
-    .btn {
-        padding: 8px 16px;
-        font-size: 14px;
-    }
-    
-    .btn-fail, .btn-pass {
-        padding: 10px 20px;
-        font-size: 14px;
-    }
-    
-    .btn-download, .btn-role-select {
-        display: none;
-    }
-}
-
-/* Touch device optimization */
-@media (hover: none) and (pointer: coarse) {
-    .btn:hover {
-        /* Remove hover effect for better performance */
-    }
-    
-    .btn:active {
-        transform: scale(0.95);
-    }
-    
-    .nickname:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-    
-    .role-item:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-}
-
 /* ========== Mobile Bottom Navigation ========== */
 .mobile-bottom-nav {
     display: none;
@@ -1026,34 +652,381 @@ body {
     color: #f87171;
 }
 
-/* Hide original buttons, show bottom nav on mobile */
+/* ========== Mobile Adaptation ========== */
+
+/* Shared mobile layout styles for 768px and below */
 @media screen and (max-width: 768px) {
+    /* Use html selector for broader browser support instead of :root */
+    html {
+        --mobile-bottom-nav-height: calc(60px + env(safe-area-inset-bottom));
+    }
+
+    /* Hide original buttons, show bottom nav */
     .mobile-bottom-nav {
         display: flex;
     }
-    
-    /* Hide original pass/fail buttons */
+
     #passBtn, #failBtn {
         display: none !important;
     }
-    
-    /* Hide download button (bottom nav has it) */
+
     #downloadBtn {
         display: none !important;
     }
-    
-    /* Hide prev button (bottom nav has it) */
+
     #prevBtn {
         display: none !important;
     }
-    
-    /* Hide skip button */
+
     #skipBtn {
         display: none !important;
     }
-    
-    /* Adjust main content area, leave space for bottom nav */
+
+    /* Main content area - image from top */
     .main-content {
+        height: calc(100vh - var(--mobile-reserved-height));
+        padding: 10px;
         padding-bottom: var(--mobile-bottom-nav-height) !important;
+        align-items: flex-start;
+        justify-content: center;
+    }
+
+    /* Image container - full width, within safe area */
+    .image-container {
+        max-width: 100%;
+        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
+        width: 100%;
+        padding: 10px;
+        flex: none;
+        overflow-y: auto;  /* Allow scroll instead of clipping */
+    }
+
+    /* Mobile image - auto fit within safe area */
+    #reviewImage {
+        max-width: 100%;
+        max-height: calc(100vh - var(--mobile-reserved-height) - 36px);
+        width: auto;
+        height: auto;
+        object-fit: contain;
+    }
+
+    /* Navbar adjustment */
+    .navbar {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: 50px;
+        padding: 6px 10px;
+        gap: 6px;
+    }
+
+    .nav-left, .nav-center, .nav-right {
+        flex: none;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .nav-left {
+        justify-content: flex-start;
+    }
+
+    .nav-right {
+        justify-content: flex-end;
+    }
+
+    .user-info {
+        gap: 10px;
+    }
+
+    .nickname {
+        font-size: 14px;
+        padding: 4px 8px;
+    }
+
+    .review-count {
+        font-size: 12px;
+    }
+
+    .progress-container {
+        max-width: 180px;
+    }
+
+    .progress-label {
+        font-size: 11px;
+    }
+
+    .complete-container {
+        font-size: 11px;
+        padding: 3px 8px;
+        margin-left: 8px;
+        margin-top: 4px;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .complete-count {
+        font-size: 14px;
+    }
+
+    .nav-center {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .progress-container {
+        flex: 1 1 200px;
+    }
+
+    .complete-container {
+        flex: 0 0 auto;
+        margin-left: 0;
+    }
+
+    .btn-rule {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    /* Button position adjustment */
+    .btn-prev {
+        left: 10px;
+        top: 10px;
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+
+    .btn-skip {
+        right: 10px;
+        top: 10px;
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+
+    .btn-fail, .btn-pass {
+        padding: 12px 24px;
+        font-size: 16px;
+        bottom: var(--mobile-button-offset);
+        bottom: calc(var(--mobile-button-offset) + env(safe-area-inset-bottom));
+    }
+
+    .btn-fail {
+        left: 10px;
+    }
+
+    .btn-pass {
+        right: 10px;
+    }
+
+    .btn-download {
+        padding: 10px 20px;
+        font-size: 14px;
+        bottom: 80px;
+    }
+
+    .btn-role-select {
+        right: 10px;
+        bottom: 140px;
+        padding: 8px 16px;
+        font-size: 12px;
+    }
+
+    /* Modal */
+    .modal-content {
+        width: 95%;
+        margin: 30px auto;
+        max-height: 85vh;
+    }
+
+    .modal-content.modal-large {
+        max-width: 95%;
+    }
+
+    .modal-body {
+        padding: 15px;
+    }
+
+    /* Image stats */
+    .image-stats {
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 14px;
+    }
+
+    /* Role list */
+    .role-list {
+        max-height: 300px;
+    }
+
+    .role-item {
+        padding: 10px;
+    }
+
+    .role-avatar {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* Phone Portrait - Additional overrides for 480px and below */
+@media screen and (max-width: 480px) {
+    /* Navbar further simplified */
+    .navbar {
+        padding: 5px 8px;
+    }
+
+    .progress-detail {
+        font-size: 11px;
+    }
+
+    .role-progress {
+        display: none;
+    }
+
+    /* Main content area - smaller padding */
+    .main-content {
+        padding: 8px;
+    }
+
+    /* Image container - smaller padding */
+    .image-container {
+        padding: 8px;
+    }
+
+    /* Button - larger touch area */
+    .btn {
+        padding: 14px 20px;
+        min-height: 50px;
+        touch-action: manipulation;
+    }
+
+    .btn-prev, .btn-skip {
+        padding: 10px 14px;
+        font-size: 13px;
+        top: 5px;
+    }
+
+    .btn-prev {
+        left: 5px;
+    }
+
+    .btn-skip {
+        right: 5px;
+    }
+
+    /* Bottom buttons - percentage positioning */
+    .btn-fail, .btn-pass {
+        padding: 14px 20px;
+        font-size: 15px;
+        min-width: 120px;
+        top: auto !important;
+        bottom: 10% !important;
+    }
+
+    .btn-fail {
+        left: 2%;
+    }
+
+    .btn-pass {
+        right: 2%;
+    }
+
+    .btn-download {
+        top: auto !important;
+        bottom: 20% !important;
+        padding: 12px 18px;
+    }
+
+    .btn-role-select {
+        right: 2%;
+        top: auto !important;
+        bottom: 20% !important;
+    }
+
+    /* Modal */
+    .modal-content {
+        width: 98%;
+        margin: 20px auto;
+    }
+
+    .modal-header h3 {
+        font-size: 16px;
+    }
+
+    .close {
+        font-size: 20px;
+    }
+
+    /* Image detail */
+    .image-stats {
+        font-size: 13px;
+        gap: 8px;
+    }
+
+    .my-status {
+        font-size: 13px;
+    }
+}
+
+/* Phone Landscape */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    /* Navbar compressed */
+    .navbar {
+        height: 50px;
+        padding: 5px 12px;
+    }
+
+    .nav-left, .nav-right {
+        flex: 0;
+    }
+
+    .nav-center {
+        flex: 1;
+    }
+
+    /* Main content area */
+    .main-content {
+        height: calc(100vh - 50px);
+    }
+
+    /* Larger image display */
+    .image-container {
+        max-height: calc(100vh - 120px);
+    }
+
+    #reviewImage {
+        max-height: calc(100vh - 120px);
+    }
+
+    /* Button size reduced */
+    .btn {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+
+    .btn-fail, .btn-pass {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+
+    .btn-download, .btn-role-select {
+        display: none;
+    }
+}
+
+/* Touch device optimization */
+@media (hover: none) and (pointer: coarse) {
+    .btn:hover {
+        /* Remove hover effect for better performance */
+    }
+
+    .btn:active {
+        transform: scale(0.95);
+    }
+
+    .nickname:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .role-item:hover {
+        background-color: rgba(255, 255, 255, 0.1);
     }
 }
