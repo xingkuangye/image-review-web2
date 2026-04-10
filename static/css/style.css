@@ -1,7 +1,8 @@
-/* ========== 基础样式 ========== */
+/* ========== Base Styles ========== */
 :root {
     --mobile-button-offset: 140px;
-    --mobile-reserved-height: 100px;  /* navbar + controls space on mobile */
+    --mobile-bottom-nav-height: 70px;  /* bottom nav height for mobile */
+    --mobile-reserved-height: calc(60px + var(--mobile-bottom-nav-height));  /* navbar (60px) + bottom nav */
 }
 
 * {
@@ -22,7 +23,7 @@ body {
     overflow: hidden;
 }
 
-/* ========== 导航栏 ========== */
+/* ========== Navbar ========== */
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -159,7 +160,7 @@ body {
     border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* ========== 审核要求内容样式 ========== */
+/* ========== Review Rule Content ========== */
 .rule-content {
     background-color: rgba(37, 37, 37, 0.8);
     padding: 20px;
@@ -210,7 +211,7 @@ body {
     color: rgba(255, 255, 255, 0.8);
 }
 
-/* ========== 主内容区 ========== */
+/* ========== Main Content ========== */
 .main-content {
     position: relative;
     height: calc(100vh - 60px);
@@ -219,7 +220,7 @@ body {
     justify-content: center;
 }
 
-/* ========== 按钮样式 ========== */
+/* ========== Button Styles ========== */
 .btn {
     border: none;
     padding: 12px 24px;
@@ -335,7 +336,7 @@ body {
     border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* ========== 图片容器 ========== */
+/* ========== Image Container ========== */
 .image-container {
     max-width: 75%;
     max-height: 65vh;
@@ -394,7 +395,7 @@ body {
     color: rgba(255, 255, 255, 0.6);
 }
 
-/* ========== 模态框 ========== */
+/* ========== Modal ========== */
 .modal {
     display: none;
     position: fixed;
@@ -454,7 +455,7 @@ body {
     padding: 20px;
 }
 
-/* ========== 角色列表 ========== */
+/* ========== Role List ========== */
 .role-list {
     margin-top: 16px;
     max-height: 400px;
@@ -510,7 +511,7 @@ body {
     background-color: rgba(68, 68, 68, 0.95);
 }
 
-/* ========== 输入框 ========== */
+/* ========== Input ========== */
 .input {
     width: 100%;
     padding: 12px;
@@ -539,7 +540,7 @@ body {
     background-color: rgba(33, 150, 243, 0.95);
 }
 
-/* ========== 图片详情 ========== */
+/* ========== Image Detail ========== */
 .image-stats {
     display: flex;
     gap: 24px;
@@ -575,7 +576,7 @@ body {
     color: rgba(255, 255, 255, 0.6);
 }
 
-/* ========== 滚动条 ========== */
+/* ========== Scrollbar ========== */
 ::-webkit-scrollbar {
     width: 8px;
 }
@@ -592,17 +593,22 @@ body {
     background: rgba(85, 85, 85, 0.9);
 }
 
-/* ========== 禁用状态 ========== */
+/* ========== Disabled State ========== */
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-/* ========== 移动端适配 ========== */
+/* ========== Mobile Adaptation ========== */
 
-/* 平板竖屏 (768px 以下) */
+/* Tablet Portrait (below 768px) */
 @media screen and (max-width: 768px) {
-    /* 导航栏调整 - 减小内边距给图片更多空间 */
+    /* Override bottom nav height for safe-area-inset support */
+    :root {
+        --mobile-bottom-nav-height: calc(60px + env(safe-area-inset-bottom));
+    }
+
+    /* Navbar adjustment - reduce padding for more space */
     .navbar {
         flex-wrap: wrap;
         height: auto;
@@ -659,7 +665,6 @@ body {
         font-size: 14px;
     }
     
-    /* 让nav-center支持flex-wrap，在窄屏时换行 */
     .nav-center {
         flex-wrap: wrap;
         gap: 8px;
@@ -679,7 +684,7 @@ body {
         font-size: 12px;
     }
     
-    /* 主内容区 - 图片从顶部开始 */
+    /* Main content area - image from top */
     .main-content {
         height: calc(100vh - var(--mobile-reserved-height));
         padding: 10px;
@@ -687,20 +692,26 @@ body {
         justify-content: center;
     }
     
-    /* 图片容器 - 从顶部开始，占满宽度 */
+    /* Image container - full width, within safe area */
     .image-container {
-        max-width: 95%;
-        max-height: none;
-        flex: 1;
+        max-width: 100%;
+        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
         width: 100%;
         padding: 10px;
+        flex: none;
+        overflow: hidden;
     }
     
+    /* Mobile image - auto fit within safe area */
     #reviewImage {
-        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
+        max-width: 100%;
+        max-height: calc(100vh - var(--mobile-reserved-height) - 36px);
+        width: auto;
+        height: auto;
+        object-fit: contain;
     }
     
-    /* 按钮位置调整 */
+    /* Button position adjustment */
     .btn-prev {
         left: 10px;
         top: 10px;
@@ -743,7 +754,7 @@ body {
         font-size: 12px;
     }
     
-    /* 模态框 */
+    /* Modal */
     .modal-content {
         width: 95%;
         margin: 30px auto;
@@ -758,14 +769,14 @@ body {
         padding: 15px;
     }
     
-    /* 图片详情统计 */
+    /* Image stats */
     .image-stats {
         flex-wrap: wrap;
         gap: 12px;
         font-size: 14px;
     }
     
-    /* 角色列表 */
+    /* Role list */
     .role-list {
         max-height: 300px;
     }
@@ -780,9 +791,9 @@ body {
     }
 }
 
-/* 手机竖屏 (480px 以下) */
+/* Phone Portrait (below 480px) */
 @media screen and (max-width: 480px) {
-    /* 导航栏进一步简化 */
+    /* Navbar further simplified */
     .navbar {
         padding: 5px 8px;
     }
@@ -795,7 +806,7 @@ body {
         display: none;
     }
     
-    /* 主内容区 - 图片从顶部开始 */
+    /* Main content area */
     .main-content {
         height: calc(100vh - var(--mobile-reserved-height));
         padding: 8px;
@@ -803,20 +814,26 @@ body {
         justify-content: center;
     }
     
-    /* 图片容器 - 从顶部开始 */
+    /* Image container - within safe area */
     .image-container {
-        max-width: 98%;
-        max-height: none;
-        flex: 1;
+        max-width: 100%;
+        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
         width: 100%;
         padding: 8px;
+        flex: none;
+        overflow: hidden;
     }
     
+    /* Mobile image - auto fit */
     #reviewImage {
-        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
+        max-width: 100%;
+        max-height: calc(100vh - var(--mobile-reserved-height) - 36px);
+        width: auto;
+        height: auto;
+        object-fit: contain;
     }
     
-    /* 按钮 - 更大的触摸区域 */
+    /* Button - larger touch area */
     .btn {
         padding: 14px 20px;
         min-height: 50px;
@@ -837,7 +854,7 @@ body {
         right: 5px;
     }
     
-    /* 底部按钮 - 使用top百分比定位 */
+    /* Bottom buttons - percentage positioning */
     .btn-fail, .btn-pass {
         padding: 14px 20px;
         font-size: 15px;
@@ -866,7 +883,7 @@ body {
         bottom: 20% !important;
     }
     
-    /* 模态框 */
+    /* Modal */
     .modal-content {
         width: 98%;
         margin: 20px auto;
@@ -880,7 +897,7 @@ body {
         font-size: 20px;
     }
     
-    /* 图片详情 */
+    /* Image detail */
     .image-stats {
         font-size: 13px;
         gap: 8px;
@@ -891,9 +908,9 @@ body {
     }
 }
 
-/* 手机横屏 (横屏模式) */
+/* Phone Landscape */
 @media screen and (max-height: 500px) and (orientation: landscape) {
-    /* 导航栏压缩 */
+    /* Navbar compressed */
     .navbar {
         height: 50px;
         padding: 5px 12px;
@@ -907,12 +924,12 @@ body {
         flex: 1;
     }
     
-    /* 主内容区 */
+    /* Main content area */
     .main-content {
         height: calc(100vh - 50px);
     }
     
-    /* 图片更大显示 */
+    /* Larger image display */
     .image-container {
         max-height: calc(100vh - 120px);
     }
@@ -921,7 +938,7 @@ body {
         max-height: calc(100vh - 120px);
     }
     
-    /* 按钮缩小 */
+    /* Button size reduced */
     .btn {
         padding: 8px 16px;
         font-size: 14px;
@@ -937,10 +954,10 @@ body {
     }
 }
 
-/* 触摸设备优化 */
+/* Touch device optimization */
 @media (hover: none) and (pointer: coarse) {
     .btn:hover {
-        /* 移除hover效果，提升性能 */
+        /* Remove hover effect for better performance */
     }
     
     .btn:active {
@@ -954,9 +971,9 @@ body {
     .role-item:hover {
         background-color: rgba(255, 255, 255, 0.1);
     }
+}
 
-
-/* ========== 移动端底部导航栏 ========== */
+/* ========== Mobile Bottom Navigation ========== */
 .mobile-bottom-nav {
     display: none;
     position: fixed;
@@ -1009,37 +1026,34 @@ body {
     color: #f87171;
 }
 
-/* 移动端隐藏原有按钮，显示底部导航 */
+/* Hide original buttons, show bottom nav on mobile */
 @media screen and (max-width: 768px) {
     .mobile-bottom-nav {
         display: flex;
     }
     
-    /* 隐藏原有的 pass/fail 按钮 */
+    /* Hide original pass/fail buttons */
     #passBtn, #failBtn {
         display: none !important;
     }
     
-    /* 隐藏下载按钮（底部导航有） */
+    /* Hide download button (bottom nav has it) */
     #downloadBtn {
         display: none !important;
     }
     
-    /* 隐藏上一张按钮（底部导航有） */
+    /* Hide prev button (bottom nav has it) */
     #prevBtn {
         display: none !important;
     }
     
-    /* 隐藏跳过按钮 */
+    /* Hide skip button */
     #skipBtn {
         display: none !important;
     }
     
-    /* 调整主内容区域，底部留空间给导航栏 */
+    /* Adjust main content area, leave space for bottom nav */
     .main-content {
-        padding-bottom: 70px !important;
+        padding-bottom: var(--mobile-bottom-nav-height) !important;
     }
-}
-
-
 }
