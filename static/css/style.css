@@ -652,37 +652,29 @@ body {
     color: #f87171;
 }
 
-/* ========== Mobile Adaptation ========== */
+/* ========== Mobile Adaptation (768px and below) ========== */
 
-/* Shared mobile layout styles for 768px and below */
+/*
+ * On mobile, we use bottom navigation controls instead of repositioning
+ * desktop buttons. Desktop buttons are hidden with display: none.
+ */
 @media screen and (max-width: 768px) {
-    /* Use html selector for broader browser support instead of :root */
+    /* Use html selector for broader browser support */
     html {
-        --mobile-bottom-nav-height: calc(60px + env(safe-area-inset-bottom));
+        /* Only bottom nav height with safe-area, navbar height (60px) is in reserved-height */
+        --mobile-bottom-nav-height: calc(70px + env(safe-area-inset-bottom));
     }
 
-    /* Hide original buttons, show bottom nav */
+    /* Hide desktop buttons, show bottom nav */
     .mobile-bottom-nav {
         display: flex;
     }
 
-    #passBtn, #failBtn {
+    #passBtn, #failBtn, #downloadBtn, #prevBtn, #skipBtn {
         display: none !important;
     }
 
-    #downloadBtn {
-        display: none !important;
-    }
-
-    #prevBtn {
-        display: none !important;
-    }
-
-    #skipBtn {
-        display: none !important;
-    }
-
-    /* Main content area - image from top */
+    /* Main content area */
     .main-content {
         height: calc(100vh - var(--mobile-reserved-height));
         padding: 10px;
@@ -691,17 +683,18 @@ body {
         justify-content: center;
     }
 
-    /* Image container - full width, within safe area */
+    /* Image container - allow scroll for iOS */
     .image-container {
         max-width: 100%;
         max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
         width: 100%;
         padding: 10px;
         flex: none;
-        overflow-y: auto;  /* Allow scroll instead of clipping */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;  /* Smooth scroll on iOS */
     }
 
-    /* Mobile image - auto fit within safe area */
+    /* Mobile image - auto fit */
     #reviewImage {
         max-width: 100%;
         max-height: calc(100vh - var(--mobile-reserved-height) - 36px);
@@ -786,49 +779,6 @@ body {
         font-size: 12px;
     }
 
-    /* Button position adjustment */
-    .btn-prev {
-        left: 10px;
-        top: 10px;
-        padding: 10px 16px;
-        font-size: 14px;
-    }
-
-    .btn-skip {
-        right: 10px;
-        top: 10px;
-        padding: 10px 16px;
-        font-size: 14px;
-    }
-
-    .btn-fail, .btn-pass {
-        padding: 12px 24px;
-        font-size: 16px;
-        bottom: var(--mobile-button-offset);
-        bottom: calc(var(--mobile-button-offset) + env(safe-area-inset-bottom));
-    }
-
-    .btn-fail {
-        left: 10px;
-    }
-
-    .btn-pass {
-        right: 10px;
-    }
-
-    .btn-download {
-        padding: 10px 20px;
-        font-size: 14px;
-        bottom: 80px;
-    }
-
-    .btn-role-select {
-        right: 10px;
-        bottom: 140px;
-        padding: 8px 16px;
-        font-size: 12px;
-    }
-
     /* Modal */
     .modal-content {
         width: 95%;
@@ -866,7 +816,7 @@ body {
     }
 }
 
-/* Phone Portrait - Additional overrides for 480px and below */
+/* ========== Phone Portrait (480px and below) ========== */
 @media screen and (max-width: 480px) {
     /* Navbar further simplified */
     .navbar {
@@ -891,54 +841,18 @@ body {
         padding: 8px;
     }
 
-    /* Button - larger touch area */
+    /* Button - larger touch area (for .btn-role-select which is still visible) */
     .btn {
         padding: 14px 20px;
         min-height: 50px;
         touch-action: manipulation;
     }
 
-    .btn-prev, .btn-skip {
-        padding: 10px 14px;
-        font-size: 13px;
-        top: 5px;
-    }
-
-    .btn-prev {
-        left: 5px;
-    }
-
-    .btn-skip {
-        right: 5px;
-    }
-
-    /* Bottom buttons - percentage positioning */
-    .btn-fail, .btn-pass {
-        padding: 14px 20px;
-        font-size: 15px;
-        min-width: 120px;
-        top: auto !important;
-        bottom: 10% !important;
-    }
-
-    .btn-fail {
-        left: 2%;
-    }
-
-    .btn-pass {
-        right: 2%;
-    }
-
-    .btn-download {
-        top: auto !important;
-        bottom: 20% !important;
-        padding: 12px 18px;
-    }
-
     .btn-role-select {
-        right: 2%;
-        top: auto !important;
-        bottom: 20% !important;
+        right: 10px;
+        bottom: 140px;
+        padding: 8px 16px;
+        font-size: 12px;
     }
 
     /* Modal */
@@ -966,7 +880,7 @@ body {
     }
 }
 
-/* Phone Landscape */
+/* ========== Phone Landscape ========== */
 @media screen and (max-height: 500px) and (orientation: landscape) {
     /* Navbar compressed */
     .navbar {
@@ -1002,17 +916,12 @@ body {
         font-size: 14px;
     }
 
-    .btn-fail, .btn-pass {
-        padding: 10px 20px;
-        font-size: 14px;
-    }
-
     .btn-download, .btn-role-select {
         display: none;
     }
 }
 
-/* Touch device optimization */
+/* ========== Touch Device Optimization ========== */
 @media (hover: none) and (pointer: coarse) {
     .btn:hover {
         /* Remove hover effect for better performance */
