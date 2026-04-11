@@ -1,7 +1,8 @@
-/* ========== 基础样式 ========== */
+/* ========== Base Styles ========== */
 :root {
     --mobile-button-offset: 140px;
-    --mobile-reserved-height: 100px;  /* navbar + controls space on mobile */
+    --mobile-bottom-nav-height: 70px;  /* bottom nav height for mobile */
+    --mobile-reserved-height: calc(60px + var(--mobile-bottom-nav-height));  /* navbar (60px) + bottom nav */
 }
 
 * {
@@ -22,7 +23,7 @@ body {
     overflow: hidden;
 }
 
-/* ========== 导航栏 ========== */
+/* ========== Navbar ========== */
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -159,7 +160,7 @@ body {
     border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* ========== 审核要求内容样式 ========== */
+/* ========== Review Rule Content ========== */
 .rule-content {
     background-color: rgba(37, 37, 37, 0.8);
     padding: 20px;
@@ -210,7 +211,7 @@ body {
     color: rgba(255, 255, 255, 0.8);
 }
 
-/* ========== 主内容区 ========== */
+/* ========== Main Content ========== */
 .main-content {
     position: relative;
     height: calc(100vh - 60px);
@@ -219,7 +220,7 @@ body {
     justify-content: center;
 }
 
-/* ========== 按钮样式 ========== */
+/* ========== Button Styles ========== */
 .btn {
     border: none;
     padding: 12px 24px;
@@ -335,7 +336,7 @@ body {
     border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* ========== 图片容器 ========== */
+/* ========== Image Container ========== */
 .image-container {
     max-width: 75%;
     max-height: 65vh;
@@ -394,7 +395,7 @@ body {
     color: rgba(255, 255, 255, 0.6);
 }
 
-/* ========== 模态框 ========== */
+/* ========== Modal ========== */
 .modal {
     display: none;
     position: fixed;
@@ -454,7 +455,7 @@ body {
     padding: 20px;
 }
 
-/* ========== 角色列表 ========== */
+/* ========== Role List ========== */
 .role-list {
     margin-top: 16px;
     max-height: 400px;
@@ -510,7 +511,7 @@ body {
     background-color: rgba(68, 68, 68, 0.95);
 }
 
-/* ========== 输入框 ========== */
+/* ========== Input ========== */
 .input {
     width: 100%;
     padding: 12px;
@@ -539,7 +540,7 @@ body {
     background-color: rgba(33, 150, 243, 0.95);
 }
 
-/* ========== 图片详情 ========== */
+/* ========== Image Detail ========== */
 .image-stats {
     display: flex;
     gap: 24px;
@@ -575,7 +576,7 @@ body {
     color: rgba(255, 255, 255, 0.6);
 }
 
-/* ========== 滚动条 ========== */
+/* ========== Scrollbar ========== */
 ::-webkit-scrollbar {
     width: 8px;
 }
@@ -592,371 +593,13 @@ body {
     background: rgba(85, 85, 85, 0.9);
 }
 
-/* ========== 禁用状态 ========== */
+/* ========== Disabled State ========== */
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-/* ========== 移动端适配 ========== */
-
-/* 平板竖屏 (768px 以下) */
-@media screen and (max-width: 768px) {
-    /* 导航栏调整 - 减小内边距给图片更多空间 */
-    .navbar {
-        flex-wrap: wrap;
-        height: auto;
-        min-height: 50px;
-        padding: 6px 10px;
-        gap: 6px;
-    }
-    
-    .nav-left, .nav-center, .nav-right {
-        flex: none;
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .nav-left {
-        justify-content: flex-start;
-    }
-    
-    .nav-right {
-        justify-content: flex-end;
-    }
-    
-    .user-info {
-        gap: 10px;
-    }
-    
-    .nickname {
-        font-size: 14px;
-        padding: 4px 8px;
-    }
-    
-    .review-count {
-        font-size: 12px;
-    }
-    
-    .progress-container {
-        max-width: 180px;
-    }
-    
-    .progress-label {
-        font-size: 11px;
-    }
-    
-    .complete-container {
-        font-size: 11px;
-        padding: 3px 8px;
-        margin-left: 8px;
-        margin-top: 4px;
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .complete-count {
-        font-size: 14px;
-    }
-    
-    /* 让nav-center支持flex-wrap，在窄屏时换行 */
-    .nav-center {
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-    
-    .progress-container {
-        flex: 1 1 200px;
-    }
-    
-    .complete-container {
-        flex: 0 0 auto;
-        margin-left: 0;
-    }
-    
-    .btn-rule {
-        padding: 6px 12px;
-        font-size: 12px;
-    }
-    
-    /* 主内容区 - 图片从顶部开始 */
-    .main-content {
-        height: calc(100vh - var(--mobile-reserved-height));
-        padding: 10px;
-        align-items: flex-start;
-        justify-content: center;
-    }
-    
-    /* 图片容器 - 从顶部开始，占满宽度 */
-    .image-container {
-        max-width: 95%;
-        max-height: none;
-        flex: 1;
-        width: 100%;
-        padding: 10px;
-    }
-    
-    #reviewImage {
-        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
-    }
-    
-    /* 按钮位置调整 */
-    .btn-prev {
-        left: 10px;
-        top: 10px;
-        padding: 10px 16px;
-        font-size: 14px;
-    }
-    
-    .btn-skip {
-        right: 10px;
-        top: 10px;
-        padding: 10px 16px;
-        font-size: 14px;
-    }
-    
-    .btn-fail, .btn-pass {
-        padding: 12px 24px;
-        font-size: 16px;
-        bottom: var(--mobile-button-offset);
-        bottom: calc(var(--mobile-button-offset) + env(safe-area-inset-bottom));
-    }
-    
-    .btn-fail {
-        left: 10px;
-    }
-    
-    .btn-pass {
-        right: 10px;
-    }
-    
-    .btn-download {
-        padding: 10px 20px;
-        font-size: 14px;
-        bottom: 80px;
-    }
-    
-    .btn-role-select {
-        right: 10px;
-        bottom: 140px;
-        padding: 8px 16px;
-        font-size: 12px;
-    }
-    
-    /* 模态框 */
-    .modal-content {
-        width: 95%;
-        margin: 30px auto;
-        max-height: 85vh;
-    }
-    
-    .modal-content.modal-large {
-        max-width: 95%;
-    }
-    
-    .modal-body {
-        padding: 15px;
-    }
-    
-    /* 图片详情统计 */
-    .image-stats {
-        flex-wrap: wrap;
-        gap: 12px;
-        font-size: 14px;
-    }
-    
-    /* 角色列表 */
-    .role-list {
-        max-height: 300px;
-    }
-    
-    .role-item {
-        padding: 10px;
-    }
-    
-    .role-avatar {
-        width: 40px;
-        height: 40px;
-    }
-}
-
-/* 手机竖屏 (480px 以下) */
-@media screen and (max-width: 480px) {
-    /* 导航栏进一步简化 */
-    .navbar {
-        padding: 5px 8px;
-    }
-    
-    .progress-detail {
-        font-size: 11px;
-    }
-    
-    .role-progress {
-        display: none;
-    }
-    
-    /* 主内容区 - 图片从顶部开始 */
-    .main-content {
-        height: calc(100vh - var(--mobile-reserved-height));
-        padding: 8px;
-        align-items: flex-start;
-        justify-content: center;
-    }
-    
-    /* 图片容器 - 从顶部开始 */
-    .image-container {
-        max-width: 98%;
-        max-height: none;
-        flex: 1;
-        width: 100%;
-        padding: 8px;
-    }
-    
-    #reviewImage {
-        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
-    }
-    
-    /* 按钮 - 更大的触摸区域 */
-    .btn {
-        padding: 14px 20px;
-        min-height: 50px;
-        touch-action: manipulation;
-    }
-    
-    .btn-prev, .btn-skip {
-        padding: 10px 14px;
-        font-size: 13px;
-        top: 5px;
-    }
-    
-    .btn-prev {
-        left: 5px;
-    }
-    
-    .btn-skip {
-        right: 5px;
-    }
-    
-    /* 底部按钮 - 使用top百分比定位 */
-    .btn-fail, .btn-pass {
-        padding: 14px 20px;
-        font-size: 15px;
-        min-width: 120px;
-        top: auto !important;
-        bottom: 10% !important;
-    }
-    
-    .btn-fail {
-        left: 2%;
-    }
-    
-    .btn-pass {
-        right: 2%;
-    }
-    
-    .btn-download {
-        top: auto !important;
-        bottom: 20% !important;
-        padding: 12px 18px;
-    }
-    
-    .btn-role-select {
-        right: 2%;
-        top: auto !important;
-        bottom: 20% !important;
-    }
-    
-    /* 模态框 */
-    .modal-content {
-        width: 98%;
-        margin: 20px auto;
-    }
-    
-    .modal-header h3 {
-        font-size: 16px;
-    }
-    
-    .close {
-        font-size: 20px;
-    }
-    
-    /* 图片详情 */
-    .image-stats {
-        font-size: 13px;
-        gap: 8px;
-    }
-    
-    .my-status {
-        font-size: 13px;
-    }
-}
-
-/* 手机横屏 (横屏模式) */
-@media screen and (max-height: 500px) and (orientation: landscape) {
-    /* 导航栏压缩 */
-    .navbar {
-        height: 50px;
-        padding: 5px 12px;
-    }
-    
-    .nav-left, .nav-right {
-        flex: 0;
-    }
-    
-    .nav-center {
-        flex: 1;
-    }
-    
-    /* 主内容区 */
-    .main-content {
-        height: calc(100vh - 50px);
-    }
-    
-    /* 图片更大显示 */
-    .image-container {
-        max-height: calc(100vh - 120px);
-    }
-    
-    #reviewImage {
-        max-height: calc(100vh - 120px);
-    }
-    
-    /* 按钮缩小 */
-    .btn {
-        padding: 8px 16px;
-        font-size: 14px;
-    }
-    
-    .btn-fail, .btn-pass {
-        padding: 10px 20px;
-        font-size: 14px;
-    }
-    
-    .btn-download, .btn-role-select {
-        display: none;
-    }
-}
-
-/* 触摸设备优化 */
-@media (hover: none) and (pointer: coarse) {
-    .btn:hover {
-        /* 移除hover效果，提升性能 */
-    }
-    
-    .btn:active {
-        transform: scale(0.95);
-    }
-    
-    .nickname:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-    
-    .role-item:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-
-
-/* ========== 移动端底部导航栏 ========== */
+/* ========== Mobile Bottom Navigation ========== */
 .mobile-bottom-nav {
     display: none;
     position: fixed;
@@ -1009,37 +652,290 @@ body {
     color: #f87171;
 }
 
-/* 移动端隐藏原有按钮，显示底部导航 */
+/* ========== Mobile Adaptation (768px and below) ========== */
+
+/*
+ * On mobile, we use bottom navigation controls instead of repositioning
+ * desktop buttons. Desktop buttons are hidden with display: none.
+ */
 @media screen and (max-width: 768px) {
+    /* Use html selector for broader browser support */
+    html {
+        /* Only bottom nav height with safe-area, navbar height (60px) is in reserved-height */
+        --mobile-bottom-nav-height: calc(70px + env(safe-area-inset-bottom));
+    }
+
+    /* Hide desktop buttons, show bottom nav */
     .mobile-bottom-nav {
         display: flex;
     }
-    
-    /* 隐藏原有的 pass/fail 按钮 */
-    #passBtn, #failBtn {
+
+    #passBtn, #failBtn, #downloadBtn, #prevBtn, #skipBtn {
         display: none !important;
     }
-    
-    /* 隐藏下载按钮（底部导航有） */
-    #downloadBtn {
-        display: none !important;
-    }
-    
-    /* 隐藏上一张按钮（底部导航有） */
-    #prevBtn {
-        display: none !important;
-    }
-    
-    /* 隐藏跳过按钮 */
-    #skipBtn {
-        display: none !important;
-    }
-    
-    /* 调整主内容区域，底部留空间给导航栏 */
+
+    /* Main content area */
     .main-content {
-        padding-bottom: 70px !important;
+        height: calc(100vh - var(--mobile-reserved-height));
+        padding: 10px;
+        padding-bottom: var(--mobile-bottom-nav-height) !important;
+        align-items: flex-start;
+        justify-content: center;
+    }
+
+    /* Image container - allow scroll for iOS */
+    .image-container {
+        max-width: 100%;
+        max-height: calc(100vh - var(--mobile-reserved-height) - 20px);
+        width: 100%;
+        padding: 10px;
+        flex: none;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;  /* Smooth scroll on iOS */
+    }
+
+    /* Mobile image - auto fit */
+    #reviewImage {
+        max-width: 100%;
+        max-height: calc(100vh - var(--mobile-reserved-height) - 36px);
+        width: auto;
+        height: auto;
+        object-fit: contain;
+    }
+
+    /* Navbar adjustment */
+    .navbar {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: 50px;
+        padding: 6px 10px;
+        gap: 6px;
+    }
+
+    .nav-left, .nav-center, .nav-right {
+        flex: none;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .nav-left {
+        justify-content: flex-start;
+    }
+
+    .nav-right {
+        justify-content: flex-end;
+    }
+
+    .user-info {
+        gap: 10px;
+    }
+
+    .nickname {
+        font-size: 14px;
+        padding: 4px 8px;
+    }
+
+    .review-count {
+        font-size: 12px;
+    }
+
+    .progress-container {
+        max-width: 180px;
+    }
+
+    .progress-label {
+        font-size: 11px;
+    }
+
+    .complete-container {
+        font-size: 11px;
+        padding: 3px 8px;
+        margin-left: 8px;
+        margin-top: 4px;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .complete-count {
+        font-size: 14px;
+    }
+
+    .nav-center {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .progress-container {
+        flex: 1 1 200px;
+    }
+
+    .complete-container {
+        flex: 0 0 auto;
+        margin-left: 0;
+    }
+
+    .btn-rule {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    /* Modal */
+    .modal-content {
+        width: 95%;
+        margin: 30px auto;
+        max-height: 85vh;
+    }
+
+    .modal-content.modal-large {
+        max-width: 95%;
+    }
+
+    .modal-body {
+        padding: 15px;
+    }
+
+    /* Image stats */
+    .image-stats {
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 14px;
+    }
+
+    /* Role list */
+    .role-list {
+        max-height: 300px;
+    }
+
+    .role-item {
+        padding: 10px;
+    }
+
+    .role-avatar {
+        width: 40px;
+        height: 40px;
     }
 }
 
+/* ========== Phone Portrait (480px and below) ========== */
+@media screen and (max-width: 480px) {
+    /* Navbar further simplified */
+    .navbar {
+        padding: 5px 8px;
+    }
 
+    .progress-detail {
+        font-size: 11px;
+    }
+
+    .role-progress {
+        display: none;
+    }
+
+    /* Main content area - smaller padding */
+    .main-content {
+        padding: 8px;
+    }
+
+    /* Image container - smaller padding */
+    .image-container {
+        padding: 8px;
+    }
+
+    /* Button - larger touch area (for .btn-role-select which is still visible) */
+    .btn {
+        padding: 14px 20px;
+        min-height: 50px;
+        touch-action: manipulation;
+    }
+
+    .btn-role-select {
+        right: 10px;
+        bottom: 140px;
+        padding: 8px 16px;
+        font-size: 12px;
+    }
+
+    /* Modal */
+    .modal-content {
+        width: 98%;
+        margin: 20px auto;
+    }
+
+    .modal-header h3 {
+        font-size: 16px;
+    }
+
+    .close {
+        font-size: 20px;
+    }
+
+    /* Image detail */
+    .image-stats {
+        font-size: 13px;
+        gap: 8px;
+    }
+
+    .my-status {
+        font-size: 13px;
+    }
+}
+
+/* ========== Phone Landscape ========== */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    /* Navbar compressed */
+    .navbar {
+        height: 50px;
+        padding: 5px 12px;
+    }
+
+    .nav-left, .nav-right {
+        flex: 0;
+    }
+
+    .nav-center {
+        flex: 1;
+    }
+
+    /* Main content area */
+    .main-content {
+        height: calc(100vh - 50px);
+    }
+
+    /* Larger image display */
+    .image-container {
+        max-height: calc(100vh - 120px);
+    }
+
+    #reviewImage {
+        max-height: calc(100vh - 120px);
+    }
+
+    /* Button size reduced */
+    .btn {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+
+    .btn-download, .btn-role-select {
+        display: none;
+    }
+}
+
+/* ========== Touch Device Optimization ========== */
+@media (hover: none) and (pointer: coarse) {
+    .btn:hover {
+        /* Remove hover effect for better performance */
+    }
+
+    .btn:active {
+        transform: scale(0.95);
+    }
+
+    .nickname:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .role-item:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
 }
