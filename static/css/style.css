@@ -675,8 +675,9 @@ body {
     }
 
     /* Main content area - reserve space for header and bottom nav */
+    /* Using 100dvh (dynamic viewport height) for better mobile browser compatibility */
     .main-content {
-        height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
+        height: calc(100dvh - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
         padding: 10px;
         padding-bottom: 0;
         align-items: center;
@@ -690,7 +691,7 @@ body {
         height: 100%;
         padding: 0;
         flex: none;
-        overflow: auto;
+        overflow-y: auto;  /* Vertical scroll only, no horizontal scroll */
         -webkit-overflow-scrolling: touch;
         display: flex;
         align-items: center;
@@ -700,10 +701,9 @@ body {
     /* Mobile image - auto scale to fit container */
     #reviewImage {
         max-width: 100%;
-        max-height: 100%;
+        max-height: calc(100dvh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
         width: auto;
         height: auto;
-        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
         object-fit: contain;
     }
 
@@ -906,16 +906,16 @@ body {
 
     /* Main content area - use shared header height variable */
     .main-content {
-        height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
+        height: calc(100dvh - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
     }
 
     /* Larger image display - fit above bottom nav */
     .image-container {
-        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
+        max-height: calc(100dvh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
     }
 
     #reviewImage {
-        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 30px);
+        max-height: calc(100dvh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 30px);
     }
 
     /* Button size reduced */
