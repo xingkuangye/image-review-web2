@@ -2,7 +2,7 @@
 :root {
     --mobile-button-offset: 140px;
     --mobile-bottom-nav-height: 70px;  /* bottom nav height for mobile */
-    --mobile-reserved-height: calc(60px + var(--mobile-bottom-nav-height));  /* navbar (60px) + bottom nav */
+    --mobile-header-height: 60px;      /* header/navbar height */
 }
 
 * {
@@ -661,8 +661,8 @@ body {
 @media screen and (max-width: 768px) {
     /* Use html selector for broader browser support */
     html {
-        /* Only bottom nav height with safe-area, navbar height (60px) is in reserved-height */
         --mobile-bottom-nav-height: calc(70px + env(safe-area-inset-bottom));
+        --mobile-header-height: 60px;
     }
 
     /* Hide desktop buttons, show bottom nav */
@@ -674,19 +674,18 @@ body {
         display: none !important;
     }
 
-    /* Main content area - reserve space for bottom nav */
+    /* Main content area - reserve space for header and bottom nav */
     .main-content {
-        height: calc(100vh - 60px - var(--mobile-bottom-nav-height));
+        height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
         padding: 10px;
         align-items: center;
         justify-content: center;
-        overflow: hidden;
     }
 
     /* Image container - fit within safe area above bottom nav */
     .image-container {
         max-width: 100%;
-        max-height: calc(100vh - 60px - var(--mobile-bottom-nav-height) - 20px);
+        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
         width: 100%;
         height: 100%;
         padding: 10px;
@@ -698,7 +697,7 @@ body {
     /* Mobile image - auto scale to fit container */
     #reviewImage {
         max-width: 100%;
-        max-height: calc(100vh - 60px - var(--mobile-bottom-nav-height) - 40px);
+        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 40px);
         width: auto;
         height: auto;
         object-fit: contain;
@@ -884,6 +883,10 @@ body {
 /* ========== Phone Landscape ========== */
 @media screen and (max-height: 500px) and (orientation: landscape) {
     /* Navbar compressed */
+    html {
+        --mobile-header-height: 50px;  /* Compressed header for landscape */
+    }
+
     .navbar {
         height: 50px;
         padding: 5px 12px;
@@ -897,18 +900,18 @@ body {
         flex: 1;
     }
 
-    /* Main content area - reserve space for bottom nav */
+    /* Main content area - use shared header height variable */
     .main-content {
-        height: calc(100vh - 50px - var(--mobile-bottom-nav-height));
+        height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
     }
 
     /* Larger image display - fit above bottom nav */
     .image-container {
-        max-height: calc(100vh - 50px - var(--mobile-bottom-nav-height) - 20px);
+        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
     }
 
     #reviewImage {
-        max-height: calc(100vh - 50px - var(--mobile-bottom-nav-height) - 30px);
+        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 30px);
     }
 
     /* Button size reduced */
