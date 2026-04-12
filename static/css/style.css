@@ -678,6 +678,7 @@ body {
     .main-content {
         height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
         padding: 10px;
+        padding-bottom: 0;
         align-items: center;
         justify-content: center;
     }
@@ -685,21 +686,24 @@ body {
     /* Image container - fit within safe area above bottom nav */
     .image-container {
         max-width: 100%;
-        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
         width: 100%;
         height: 100%;
-        padding: 10px;
+        padding: 0;
         flex: none;
-        overflow-y: auto;
+        overflow: auto;
         -webkit-overflow-scrolling: touch;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     /* Mobile image - auto scale to fit container */
     #reviewImage {
         max-width: 100%;
-        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 40px);
+        max-height: 100%;
         width: auto;
         height: auto;
+        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
         object-fit: contain;
     }
 
