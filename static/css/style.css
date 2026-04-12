@@ -663,6 +663,17 @@ body {
     html {
         --mobile-bottom-nav-height: calc(70px + env(safe-area-inset-bottom));
         --mobile-header-height: 60px;
+        /* Fallback viewport height for browsers without 100dvh support */
+        --mobile-viewport-height: 100vh;
+        /* Centralized content area height calculation (auto-updates when viewport changes) */
+        --mobile-content-height: calc(var(--mobile-viewport-height) - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
+    }
+
+    /* Use 100dvh where supported - only override viewport height, content-height auto-updates */
+    @supports (height: 100dvh) {
+        html {
+            --mobile-viewport-height: 100dvh;
+        }
     }
 
     /* Hide desktop buttons, show bottom nav */
@@ -676,8 +687,9 @@ body {
 
     /* Main content area - reserve space for header and bottom nav */
     .main-content {
-        height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
+        height: var(--mobile-content-height);
         padding: 10px;
+        padding-bottom: 0;
         align-items: center;
         justify-content: center;
     }
@@ -685,19 +697,22 @@ body {
     /* Image container - fit within safe area above bottom nav */
     .image-container {
         max-width: 100%;
-        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
         width: 100%;
+        max-height: var(--mobile-content-height);
         height: 100%;
-        padding: 10px;
+        padding: 0;
         flex: none;
-        overflow-y: auto;
+        overflow-y: auto;  /* Vertical scroll only, no horizontal scroll */
         -webkit-overflow-scrolling: touch;
+        display: flex;
+        align-items: flex-start;  /* Align to top for better UX when scrolling */
+        justify-content: center;
     }
 
     /* Mobile image - auto scale to fit container */
     #reviewImage {
         max-width: 100%;
-        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 40px);
+        max-height: calc(var(--mobile-content-height) - 20px);
         width: auto;
         height: auto;
         object-fit: contain;
@@ -882,7 +897,7 @@ body {
 
 /* ========== Phone Landscape ========== */
 @media screen and (max-height: 500px) and (orientation: landscape) {
-    /* Navbar compressed */
+    /* Navbar compressed - only override header height, content-height auto-updates */
     html {
         --mobile-header-height: 50px;  /* Compressed header for landscape */
     }
@@ -900,18 +915,18 @@ body {
         flex: 1;
     }
 
-    /* Main content area - use shared header height variable */
+    /* Main content area - use shared content height variable */
     .main-content {
-        height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
+        height: var(--mobile-content-height);
     }
 
     /* Larger image display - fit above bottom nav */
     .image-container {
-        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 20px);
+        max-height: calc(var(--mobile-content-height) - 20px);
     }
 
     #reviewImage {
-        max-height: calc(100vh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 30px);
+        max-height: calc(var(--mobile-content-height) - 30px);
     }
 
     /* Button size reduced */
