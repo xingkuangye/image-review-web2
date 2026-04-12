@@ -665,15 +665,14 @@ body {
         --mobile-header-height: 60px;
         /* Fallback viewport height for browsers without 100dvh support */
         --mobile-viewport-height: 100vh;
-        /* Centralized content area height calculation */
+        /* Centralized content area height calculation (auto-updates when viewport changes) */
         --mobile-content-height: calc(var(--mobile-viewport-height) - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
     }
 
-    /* Use 100dvh where supported for better mobile browser behavior */
+    /* Use 100dvh where supported - only override viewport height, content-height auto-updates */
     @supports (height: 100dvh) {
         html {
             --mobile-viewport-height: 100dvh;
-            --mobile-content-height: calc(var(--mobile-viewport-height) - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
         }
     }
 
@@ -699,6 +698,7 @@ body {
     .image-container {
         max-width: 100%;
         width: 100%;
+        max-height: var(--mobile-content-height);
         height: 100%;
         padding: 0;
         flex: none;
@@ -897,10 +897,9 @@ body {
 
 /* ========== Phone Landscape ========== */
 @media screen and (max-height: 500px) and (orientation: landscape) {
-    /* Navbar compressed - recalculate content height */
+    /* Navbar compressed - only override header height, content-height auto-updates */
     html {
         --mobile-header-height: 50px;  /* Compressed header for landscape */
-        --mobile-content-height: calc(var(--mobile-viewport-height) - var(--mobile-header-height) - var(--mobile-bottom-nav-height));
     }
 
     .navbar {
