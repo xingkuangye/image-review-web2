@@ -668,7 +668,7 @@ body {
         /* Fallback viewport height for browsers without 100dvh support */
         --mobile-viewport-height: 100vh;
         /* Extra margin from bottom nav to prevent blocking */
-        --mobile-bottom-margin: 20px;
+        --mobile-bottom-margin: 30px;
         /* Centralized content area height calculation (auto-updates when viewport changes) */
         --mobile-content-height: calc(var(--mobile-viewport-height) - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - var(--mobile-bottom-margin));
     }
