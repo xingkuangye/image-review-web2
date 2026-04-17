@@ -928,11 +928,11 @@ body {
 
     /* Larger image display - fit above bottom nav */
     .image-container {
-        max-height: calc(var(--mobile-content-height) - 20px);
+        max-height: calc(var(--mobile-content-height) - 30px);
     }
 
     #reviewImage {
-        max-height: calc(var(--mobile-content-height) - 30px);
+        max-height: calc(var(--mobile-content-height) - 40px);
     }
 
     /* Button size reduced */
