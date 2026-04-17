@@ -347,6 +347,7 @@ body {
     background-color: rgba(0, 0, 0, 0.4);
     padding: 20px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);  /* Move shadow to container for better fit */
 }
 
 #reviewImage {
@@ -354,7 +355,6 @@ body {
     max-height: 65vh;
     object-fit: contain;
     display: none;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .loading {
@@ -704,13 +704,14 @@ body {
         width: 100%;
         max-height: var(--mobile-content-height);
         height: 100%;
-        padding: 0;
+        padding: 10px;
         flex: none;
         overflow-y: auto;  /* Vertical scroll only, no horizontal scroll */
         -webkit-overflow-scrolling: touch;
         display: flex;
         align-items: flex-start;  /* Align to top for better UX when scrolling */
         justify-content: center;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);  /* Shadow on container */
     }
 
     /* Mobile image - auto scale to fit container */
