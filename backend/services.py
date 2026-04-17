@@ -469,7 +469,7 @@ def get_overall_stats() -> StatsResponse:
             SUM(fail_count) as fail_count,
             SUM(skip_count) as skip_count,
             SUM(vote_count) as total_reviews,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? AND fail_count = 0 THEN image_id END) as completed_images
+            COUNT(DISTINCT CASE WHEN vote_count >= ? THEN image_id END) as completed_images
         FROM (
             SELECT 
                 image_id,
@@ -480,7 +480,7 @@ def get_overall_stats() -> StatsResponse:
             FROM reviews
             GROUP BY image_id
         )
-    ''', (REQUIRED_VOTES, REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
+    ''', (REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
     
     stats = cursor.fetchone()
     conn.close()
@@ -516,7 +516,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
             SUM(fail_count) as fail_count,
             SUM(skip_count) as skip_count,
             SUM(vote_count) as total_reviews,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? AND fail_count = 0 THEN image_id END) as completed_images
+            COUNT(DISTINCT CASE WHEN vote_count >= ? THEN image_id END) as completed_images
         FROM (
             SELECT 
                 r.image_id,
@@ -529,7 +529,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
             WHERE i.role_id = ?
             GROUP BY r.image_id
         )
-    """, (REQUIRED_VOTES, REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, role_id))
+    """, (REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, role_id))
     
     stats = cursor.fetchone()
     conn.close()
