@@ -186,49 +186,59 @@ def create_role(name: str, image_path: str, avatar_path: str = None) -> RoleResp
         raise e
 
 def get_all_roles() -> List[RoleResponse]:
-    """获取所有角色（优化：使用JOIN一次性查询，新投票规则）"""
+    """获取所有角色（优化：使用JOIN一次性查询）"""
 
     conn = get_db()
     cursor = conn.cursor()
 
-    # 新投票规则：统计3人全部通过的图片数量
+    # 获取角色基础信息
     cursor.execute("""
-        SELECT 
-            r.id, r.name, r.image_path, r.avatar_path,
-            COUNT(DISTINCT i.id) as total_images,
-            COALESCE((
-                SELECT COUNT(*) FROM (
-                    SELECT rev.image_id
-                    FROM reviews rev
-                    JOIN images img ON rev.image_id = img.id
-                    WHERE img.role_id = r.id
-                    AND rev.status != 'skip'
-                    GROUP BY rev.image_id
-                    HAVING COUNT(*) >= ? AND SUM(CASE WHEN rev.status = 'pass' THEN 1 ELSE 0 END) = COUNT(*)
-                ) AS completed
-            ), 0) as completed_images
+        SELECT r.id, r.name, r.image_path, r.avatar_path,
+               COUNT(DISTINCT i.id) as total_images
         FROM roles r
         LEFT JOIN images i ON r.id = i.role_id
         GROUP BY r.id
+    """)
+
+    role_base = {row['id']: dict(row) for row in cursor.fetchall()}
+
+    # 分别统计通过和失败的数量
+    cursor.execute("""
+        SELECT img.role_id,
+               SUM(CASE WHEN rev.status = 'pass' THEN 1 ELSE 0 END) as pass_count,
+               SUM(CASE WHEN rev.status = 'fail' THEN 1 ELSE 0 END) as fail_count
+        FROM reviews rev
+        JOIN images img ON rev.image_id = img.id
+        WHERE rev.status != 'skip'
+        GROUP BY img.role_id, rev.image_id
+        HAVING COUNT(*) >= ?
     """, (REQUIRED_VOTES,))
 
-    roles = []
+    pass_fail_by_role = {}
     for row in cursor.fetchall():
-        completed_images = row['completed_images'] or 0
+        role_id = row['role_id']
+        if role_id not in pass_fail_by_role:
+            pass_fail_by_role[role_id] = {'pass': 0, 'fail': 0, 'completed': 0}
+        pass_fail_by_role[role_id]['pass'] += row['pass_count']
+        pass_fail_by_role[role_id]['fail'] += row['fail_count']
+        pass_fail_by_role[role_id]['completed'] += 1
+
+    roles = []
+    for role_id, base in role_base.items():
+        stats = pass_fail_by_role.get(role_id, {'pass': 0, 'fail': 0, 'completed': 0})
         roles.append(RoleResponse(
-            id=row['id'],
-            name=row['name'],
-            image_path=row['image_path'],
-            avatar_path=row['avatar_path'],
-            total_images=row['total_images'] or 0,
-            reviewed_images=completed_images,
-            pass_count=completed_images,
-            fail_count=0
+            id=role_id,
+            name=base['name'],
+            image_path=base['image_path'],
+            avatar_path=base['avatar_path'],
+            total_images=base['total_images'] or 0,
+            reviewed_images=stats['completed'],
+            pass_count=stats['pass'],
+            fail_count=stats['fail']
         ))
 
     conn.close()
     return roles
-
 
 def delete_role(role_id: int):
     """删除角色"""
