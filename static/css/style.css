@@ -661,7 +661,8 @@ body {
 @media screen and (max-width: 768px) {
     /* Use html selector for broader browser support */
     html {
-        --mobile-bottom-nav-height: calc(70px + env(safe-area-inset-bottom));
+        /* Bottom nav: base 56px (buttons) + 16px padding + safe-area */
+        --mobile-bottom-nav-height: calc(72px + env(safe-area-inset-bottom));
         /* Header height: auto layout with min-height 50px, use 100px to be safe */
         --mobile-header-height: 100px;
         /* Fallback viewport height for browsers without 100dvh support */
@@ -900,7 +901,8 @@ body {
 @media screen and (max-height: 500px) and (orientation: landscape) {
     /* Navbar compressed - only override header height, content-height auto-updates */
     html {
-        --mobile-header-height: 50px;  /* Compressed header for landscape */
+        --mobile-header-height: 60px;  /* Compressed header for landscape (50px + padding) */
+        --mobile-bottom-nav-height: calc(72px + env(safe-area-inset-bottom));  /* Same as portrait */
     }
 
     .navbar {
