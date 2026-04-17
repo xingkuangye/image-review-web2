@@ -3,6 +3,7 @@
     --mobile-button-offset: 140px;
     --mobile-bottom-nav-height: 70px;  /* bottom nav height for mobile */
     --mobile-header-height: 60px;      /* header/navbar height */
+    --image-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);  /* Shared shadow for image containers */
 }
 
 * {
@@ -347,7 +348,8 @@ body {
     background-color: rgba(0, 0, 0, 0.4);
     padding: 20px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);  /* Move shadow to container for better fit */
+    box-shadow: var(--image-shadow);
+    box-sizing: border-box;
 }
 
 #reviewImage {
@@ -711,7 +713,8 @@ body {
         display: flex;
         align-items: flex-start;  /* Align to top for better UX when scrolling */
         justify-content: center;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);  /* Shadow on container */
+        box-shadow: var(--image-shadow);
+        box-sizing: border-box;
     }
 
     /* Mobile image - auto scale to fit container */
