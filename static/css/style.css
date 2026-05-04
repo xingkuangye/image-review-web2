@@ -3,6 +3,7 @@
     --mobile-button-offset: 140px;
     --mobile-bottom-nav-height: 70px;  /* bottom nav height for mobile */
     --mobile-header-height: 60px;      /* header/navbar height */
+    --image-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);  /* Shared shadow for image containers */
 }
 
 * {
@@ -347,6 +348,8 @@ body {
     background-color: rgba(0, 0, 0, 0.4);
     padding: 20px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--image-shadow);
+    box-sizing: border-box;
 }
 
 #reviewImage {
@@ -354,7 +357,6 @@ body {
     max-height: 65vh;
     object-fit: contain;
     display: none;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .loading {
@@ -659,23 +661,23 @@ body {
  * desktop buttons. Desktop buttons are hidden with display: none.
  */
 @media screen and (max-width: 768px) {
-    /* Use html selector for broader browser support */
-    html {
+    /* Use :root for higher specificity than html */
+    :root {
         /* Bottom nav: base 56px (buttons) + 16px padding + safe-area */
         --mobile-bottom-nav-height: calc(72px + env(safe-area-inset-bottom));
-        /* Header height: auto layout with min-height 50px, use 100px to be safe */
-        --mobile-header-height: 100px;
+        /* Header height: navbar wraps to ~160px, use 160px to accommodate */
+        --mobile-header-height: 160px;
         /* Fallback viewport height for browsers without 100dvh support */
         --mobile-viewport-height: 100vh;
         /* Extra margin from bottom nav to prevent blocking */
-        --mobile-bottom-margin: 20px;
+        --mobile-bottom-margin: 30px;
         /* Centralized content area height calculation (auto-updates when viewport changes) */
         --mobile-content-height: calc(var(--mobile-viewport-height) - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - var(--mobile-bottom-margin));
     }
 
     /* Use 100dvh where supported - only override viewport height, content-height auto-updates */
     @supports (height: 100dvh) {
-        html {
+        :root {
             --mobile-viewport-height: 100dvh;
         }
     }
@@ -704,13 +706,15 @@ body {
         width: 100%;
         max-height: var(--mobile-content-height);
         height: 100%;
-        padding: 0;
+        padding: 10px;
         flex: none;
         overflow-y: auto;  /* Vertical scroll only, no horizontal scroll */
         -webkit-overflow-scrolling: touch;
         display: flex;
         align-items: flex-start;  /* Align to top for better UX when scrolling */
         justify-content: center;
+        box-shadow: var(--image-shadow);
+        box-sizing: border-box;
     }
 
     /* Mobile image - auto scale to fit container */
@@ -902,7 +906,7 @@ body {
 /* ========== Phone Landscape ========== */
 @media screen and (max-height: 500px) and (orientation: landscape) {
     /* Navbar compressed - only override header height, content-height auto-updates */
-    html {
+    :root {
         --mobile-header-height: 60px;  /* Compressed header for landscape (50px + padding) */
         --mobile-bottom-nav-height: calc(72px + env(safe-area-inset-bottom));  /* Same as portrait */
         --mobile-bottom-margin: 20px;  /* Extra margin from bottom nav */
