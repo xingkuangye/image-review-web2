@@ -1,3 +1,115 @@
+/* ========== Loading Animations ========== */
+
+/* Skeleton loading animation */
+@keyframes skeleton-pulse {
+    0%, 100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, 
+        rgba(60, 60, 60, 0.4) 0%, 
+        rgba(80, 80, 80, 0.6) 50%, 
+        rgba(60, 60, 60, 0.4) 100%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+
+/* Loading spinner */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top-color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Image fade-in animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.image-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Shadow transition */
+.image-container {
+    transition: box-shadow 0.3s ease-out;
+}
+
+/* Button ripple effect */
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+.btn-ripple {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-ripple::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.3) 10%, transparent 10%);
+    background-repeat: no-repeat;
+    background-position: center;
+    transform: scale(0);
+    opacity: 0;
+}
+
+.btn-ripple:active::after {
+    animation: ripple 0.6s ease-out;
+}
+
+/* Progress bar pulse */
+@keyframes progress-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(76, 175, 80, 0);
+    }
+}
+
+.progress-fill {
+    transition: width 0.5s ease-out, box-shadow 0.3s ease;
+}
+
+.progress-fill.active {
+    animation: progress-pulse 2s ease-in-out infinite;
+}
+
 /* ========== Base Styles ========== */
 :root {
     --mobile-button-offset: 140px;
@@ -345,11 +457,30 @@ body {
     align-items: center;
     justify-content: center;
     position: relative;
-    background-color: rgba(0, 0, 0, 0.4);
+    /* 强制移除阴影，覆盖内联样式 */
+    box-shadow: none !important;
+    /* Shadow transition for smooth color/size changes */
+    transition: box-shadow 0.3s ease-out;
+}
+
+/* Image skeleton placeholder */
+.image-skeleton {
+    position: absolute;
+    max-width: 75%;
+    max-height: 65vh;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: var(--image-shadow);
     box-sizing: border-box;
+}
+
+.image-skeleton .skeleton {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
 }
 
 #reviewImage {
@@ -357,6 +488,22 @@ body {
     max-height: 65vh;
     object-fit: contain;
     display: none;
+}
+
+/* Image fade-in animation */
+#reviewImage.loaded {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .loading {
@@ -578,21 +725,9 @@ body {
     color: rgba(255, 255, 255, 0.6);
 }
 
-/* ========== Scrollbar ========== */
+/* ========== Scrollbar - Hidden ========== */
 ::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(26, 26, 26, 0.8);
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(68, 68, 68, 0.8);
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(85, 85, 85, 0.9);
+    display: none;
 }
 
 /* ========== Disabled State ========== */
@@ -713,11 +848,10 @@ body {
         display: flex;
         align-items: flex-start;  /* Align to top for better UX when scrolling */
         justify-content: center;
-        box-shadow: var(--image-shadow);
         box-sizing: border-box;
-        /* Match desktop styles */
-        background-color: rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        /* Match desktop styles - but remove background for mobile to avoid gray box */
+        background-color: transparent !important;
+        border: none;
     }
 
     /* Mobile image - auto scale to fit container */

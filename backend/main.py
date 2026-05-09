@@ -10,7 +10,8 @@ import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
+from collections import deque
 
 from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form, Response
 from fastapi.responses import StreamingResponse
@@ -27,6 +28,48 @@ from backend.services import *
 # 安全常量
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 THUMBNAIL_MAX_SIZE = 800  # 缩略图最大边长
+
+# ============ 图片加载排队机制 ============
+# 每个用户的最大并发下载数
+MAX_CONCURRENT_DOWNLOADS_PER_USER = 2
+# 排队超时时间（秒）
+QUEUE_TIMEOUT = 60
+# 每个用户的当前下载计数
+user_active_downloads: Dict[str, int] = {}
+# 用户队列锁
+queue_lock = asyncio.Lock()
+
+async def wait_for_download_slot(user_id: str) -> bool:
+    """等待下载槽位"""
+    start_time = time.time()
+    while time.time() - start_time < QUEUE_TIMEOUT:
+        async with queue_lock:
+            active = user_active_downloads.get(user_id, 0)
+            if active < MAX_CONCURRENT_DOWNLOADS_PER_USER:
+                user_active_downloads[user_id] = active + 1
+                return True
+
+        await asyncio.sleep(0.1)
+
+    return False
+
+def release_download_slot(user_id: str):
+    """释放下载槽位"""
+    try:
+        loop = asyncio.get_running_loop()
+        loop.call_soon(lambda: asyncio.ensure_future(_process_next_in_queue(user_id)))
+    except RuntimeError:
+        pass
+
+async def _process_next_in_queue(user_id: str):
+    """处理用户下载队列中的下一个任务"""
+    async with queue_lock:
+        if user_id not in user_active_downloads:
+            return
+        if user_active_downloads.get(user_id, 0) >= MAX_CONCURRENT_DOWNLOADS_PER_USER:
+            return
+        # 分配槽位
+        user_active_downloads[user_id] = user_active_downloads.get(user_id, 0) + 1
 
 # 初始化 - 支持直接运行和模块运行
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -240,18 +283,32 @@ async def submit_image_review(
     return {"success": True}
 
 @app.get("/api/image/{image_id}/download")
-async def download_image(image_id: int):
-    """下载原图"""
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT path FROM images WHERE id = ?", (image_id,))
-    image = cursor.fetchone()
-    conn.close()
-
-    if not image:
-        raise HTTPException(status_code=404, detail="图片不存在")
-
-    return FileResponse(image['path'])
+async def download_image(image_id: int, user_id: str = None):
+    """下载原图 - 支持并发控制"""
+    if user_id:
+        got_slot = await wait_for_download_slot(user_id)
+        if not got_slot:
+            raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试")
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute("SELECT path FROM images WHERE id = ?", (image_id,))
+            image = cursor.fetchone()
+            conn.close()
+            if not image:
+                raise HTTPException(status_code=404, detail="图片不存在")
+            return FileResponse(image['path'])
+        finally:
+            release_download_slot(user_id)
+    else:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT path FROM images WHERE id = ?", (image_id,))
+        image = cursor.fetchone()
+        conn.close()
+        if not image:
+            raise HTTPException(status_code=404, detail="图片不存在")
+        return FileResponse(image['path'])
 
 
 

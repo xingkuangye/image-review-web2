@@ -1,12 +1,305 @@
-﻿// ========== 全局状态 ==========
+// ========== 全局状态 ==========
 let currentUser = null;
 let currentImage = null;
+let currentImageId = null;  // 当前显示的图片ID，用于防止错误切换
 let currentRoleId = null;
 let historyStack = [];
+
+// 下载控制器，用于取消进行中的下载
+let thumbnailAbortController = null;
+let fullImageAbortController = null;
+
+// ========== 图片阴影管理器 ==========
+class ImageShadowManager {
+    constructor(options = {}) {
+        // 配置项
+        this.config = {
+            sampleSize: options.sampleSize || 50,           // 采样区域大小
+            minBrightness: options.minBrightness || 20,      // 最小亮度阈值（排除纯黑）
+            maxBrightness: options.maxBrightness || 235,     // 最大亮度阈值（排除纯白）
+            shadowIntensity: options.shadowIntensity || 0.3,  // 阴影强度（0~1）
+            shadowOpacity: options.shadowOpacity || 0.6,     // 阴影透明度
+            baseBlur: options.baseBlur || 32,                // 基础模糊半径
+            baseOffset: options.baseOffset || 8,            // 基础偏移量
+            referenceSize: options.referenceSize || 800,     // 参考尺寸
+            minScale: options.minScale || 0.5,               // 最小缩放
+            maxScale: options.maxScale || 2.0,               // 最大缩放
+            transitionDuration: options.transitionDuration || 300  // 过渡动画时长(ms)
+        };
+        
+        // 缓存
+        this.cache = new Map();
+        this.cacheMaxSize = 20;
+        
+        // 超时管理
+        this.debounceTimer = null;
+        this.debounceDelay = 100;
+        
+        // 获取容器元素
+        this.container = null;
+    }
+    
+    /**
+     * 获取图片容器元素
+     */
+    getContainer() {
+        if (!this.container) {
+            this.container = document.querySelector('.image-container');
+        }
+        return this.container;
+    }
+    
+    /**
+     * 更新容器引用
+     */
+    refreshContainer() {
+        this.container = null;
+        return this.getContainer();
+    }
+    
+    /**
+     * 计算图片平均颜色
+     */
+    calculateAverageColor(imageElement) {
+        if (!imageElement || !imageElement.complete) return null;
+        
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const { sampleSize } = this.config;
+            
+            canvas.width = sampleSize;
+            canvas.height = sampleSize;
+            
+            // 绘制缩小后的图片
+            ctx.drawImage(imageElement, 0, 0, sampleSize, sampleSize);
+            
+            // 获取像素数据
+            const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize);
+            const data = imageData.data;
+            
+            let r = 0, g = 0, b = 0, count = 0;
+            
+            // 遍历像素，计算平均值（排除过亮和过暗的像素）
+            const { minBrightness, maxBrightness } = this.config;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const red = data[i];
+                const green = data[i + 1];
+                const blue = data[i + 2];
+                const brightness = (red + green + blue) / 3;
+                
+                // 跳过极暗或极亮的像素
+                if (brightness < minBrightness || brightness > maxBrightness) continue;
+                
+                r += red;
+                g += green;
+                b += blue;
+                count++;
+            }
+            
+            if (count === 0) return null;
+            
+            return {
+                r: Math.round(r / count),
+                g: Math.round(g / count),
+                b: Math.round(b / count),
+                count: count
+            };
+        } catch (e) {
+            console.warn('颜色采样失败:', e);
+            return null;
+        }
+    }
+    
+    /**
+     * 计算阴影尺寸参数
+     */
+    calculateShadowScale(imageWidth, imageHeight) {
+        const { referenceSize, minScale, maxScale } = this.config;
+        const maxDim = Math.max(imageWidth, imageHeight);
+        
+        // 根据图片尺寸计算缩放因子
+        const scaleFactor = Math.min(Math.max(maxDim / referenceSize, minScale), maxScale);
+        
+        return {
+            scaleFactor: scaleFactor,
+            blurRadius: Math.round(this.config.baseBlur * scaleFactor),
+            offsetY: Math.round(this.config.baseOffset * scaleFactor)
+        };
+    }
+    
+    /**
+     * 生成阴影 CSS 值
+     */
+    generateShadowStyle(colorData, scaleData) {
+        const { shadowIntensity, shadowOpacity } = this.config;
+        
+        // 计算阴影颜色（降低亮度）
+        const shadowR = Math.round(colorData.r * shadowIntensity);
+        const shadowG = Math.round(colorData.g * shadowIntensity);
+        const shadowB = Math.round(colorData.b * shadowIntensity);
+        
+        // 生成多层阴影
+        const { blurRadius, offsetY } = scaleData;
+        
+        // 主阴影
+        const mainShadow = `0 ${offsetY}px ${blurRadius}px rgba(${shadowR}, ${shadowG}, ${shadowB}, ${shadowOpacity})`;
+        // 内层阴影
+        const innerShadow = `0 ${Math.round(offsetY / 2)}px ${Math.round(blurRadius / 2)}px rgba(0, 0, 0, ${shadowOpacity * 0.7})`;
+        
+        return `${mainShadow}, ${innerShadow}`;
+    }
+    
+    /**
+     * 验证图片是否需要更新（使用缓存）
+     */
+    shouldUpdate(imageId, width, height, colorHash) {
+        const key = `${imageId}-${width}x${height}`;
+        const cached = this.cache.get(key);
+        
+        if (cached && cached.colorHash === colorHash) {
+            return { shouldUpdate: false, cachedStyle: cached.style };
+        }
+        
+        return { shouldUpdate: true, key: key };
+    }
+    
+    /**
+     * 生成颜色哈希（用于缓存验证）
+     */
+    generateColorHash(r, g, b) {
+        return `${r}-${g}-${b}`;
+    }
+    
+    /**
+     * 更新阴影（主入口）
+     */
+    update(imageElement, imageId = null) {
+        // 参数验证
+        if (!imageElement || !imageElement.complete || !imageElement.naturalWidth) {
+            return false;
+        }
+        
+        // 防抖处理
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+        }
+        
+        this.debounceTimer = setTimeout(() => {
+            this._doUpdate(imageElement, imageId);
+        }, this.debounceDelay);
+        
+        return true;
+    }
+    
+    /**
+     * 实际执行更新
+     */
+    _doUpdate(imageElement, imageId) {
+        // 计算颜色
+        const colorData = this.calculateAverageColor(imageElement);
+        if (!colorData) {
+            this.clearShadow();
+            return;
+        }
+        
+        // 计算尺寸参数
+        const scaleData = this.calculateShadowScale(
+            imageElement.naturalWidth,
+            imageElement.naturalHeight
+        );
+        
+        // 生成阴影样式
+        const shadowStyle = this.generateShadowStyle(colorData, scaleData);
+        
+        // 应用到容器
+        const container = this.getContainer();
+        if (container) {
+            container.style.boxShadow = shadowStyle;
+        }
+        
+        // 更新缓存
+        if (imageId) {
+            const key = `${imageId}-${imageElement.naturalWidth}x${imageElement.naturalHeight}`;
+            const colorHash = this.generateColorHash(colorData.r, colorData.g, colorData.b);
+            
+            // 清理旧缓存
+            if (this.cache.size >= this.cacheMaxSize) {
+                const firstKey = this.cache.keys().next().value;
+                this.cache.delete(firstKey);
+            }
+            
+            this.cache.set(key, { style: shadowStyle, colorHash: colorHash });
+        }
+    }
+    
+    /**
+     * 清除阴影
+     */
+    clearShadow() {
+        const container = this.getContainer();
+        if (container) {
+            container.style.boxShadow = '';
+        }
+    }
+    
+    /**
+     * 设置过渡动画
+     */
+    enableTransition() {
+        const container = this.getContainer();
+        if (container) {
+            container.style.transition = `box-shadow ${this.config.transitionDuration}ms ease-out`;
+        }
+    }
+    
+    /**
+     * 禁用过渡动画
+     */
+    disableTransition() {
+        const container = this.getContainer();
+        if (container) {
+            container.style.transition = 'none';
+        }
+    }
+    
+    /**
+     * 批量更新配置
+     */
+    setConfig(options) {
+        Object.assign(this.config, options);
+    }
+    
+    /**
+     * 获取当前配置
+     */
+    getConfig() {
+        return { ...this.config };
+    }
+    
+    /**
+     * 清除缓存
+     */
+    clearCache() {
+        this.cache.clear();
+    }
+}
+
+// 创建阴影管理器实例
+const imageShadowManager = new ImageShadowManager();
+
+// 兼容旧接口的函数
+function updateImageShadow(imageElement) {
+    return imageShadowManager.update(imageElement);
+}
 
 // ========== 初始化 ==========
 window.addEventListener('DOMContentLoaded', async function() {
     try {
+        // 初始化阴影管理器
+        imageShadowManager.enableTransition();
+        
         await loadSettings();  // 先加载配置
         await initUser();
         await loadStats();
@@ -86,60 +379,162 @@ async function loadStats() {
     }
 }
 
-// ========== 加载待审核图片 ==========
+// ========== 加载待审核图片（渐进加载：缩略图->原图）==========
 async function loadImage() {
     const loading = document.getElementById('loadingIndicator');
     const noImage = document.getElementById('noImageHint');
     const image = document.getElementById('reviewImage');
-    
-    if (loading) loading.style.display = 'block';
+    const skeleton = document.getElementById('imageSkeleton');
+
+    // 取消之前的下载
+    if (thumbnailAbortController) {
+        thumbnailAbortController.abort();
+        thumbnailAbortController = null;
+    }
+    if (fullImageAbortController) {
+        fullImageAbortController.abort();
+        fullImageAbortController = null;
+    }
+
+    // 显示骨架屏
+    if (skeleton) skeleton.style.display = 'flex';
+    if (loading) loading.style.display = 'none';
     if (noImage) noImage.style.display = 'none';
-    if (image) image.style.display = 'none';
-    
+    if (image) {
+        image.style.display = 'none';
+        image.classList.remove('loaded');
+        image.style.opacity = '0';
+    }
+
     // 确保用户已初始化
     if (!currentUser || !currentUser.id) {
-        if (loading) loading.textContent = '等待初始化...';
+        if (skeleton) skeleton.textContent = '等待初始化...';
         setTimeout(loadImage, 500);
         return;
     }
-    
+
     try {
         const userId = currentUser.id;
-        const url = currentRoleId 
+        const url = currentRoleId
             ? `/api/image/review?user_id=${userId}&role_id=${currentRoleId}`
             : `/api/image/review?user_id=${userId}`;
-        
+
         const response = await fetch(url);
         const data = await response.json();
-        
-        if (loading) loading.style.display = 'none';
-        
+
         if (!data.image) {
+            if (skeleton) skeleton.style.display = 'none';
             if (noImage) noImage.style.display = 'block';
             currentImage = null;
+            currentImageId = null;
             return;
         }
-        
+
         currentImage = data.image;
-        
-        // 加载图片
+        const thisImageId = currentImage.id;  // 保存本次加载的图片ID
+        currentImageId = thisImageId;  // 更新全局当前图片ID
+
         if (image) {
-            image.src = '/api/image/' + currentImage.id + '/download?' + Date.now();
-            image.style.display = 'block';
+            // 创建新的 AbortController
+            thumbnailAbortController = new AbortController();
+            const thumbnailSignal = thumbnailAbortController.signal;
+
+            // 第一步：先加载缩略图（快速预览）
+            const thumbnailUrl = '/api/image/' + thisImageId + '/thumbnail?t=' + Date.now();
+
+            // 使用 fetch + blob 方式，可以取消请求
+            try {
+                const thumbResponse = await fetch(thumbnailUrl, { signal: thumbnailSignal });
+                if (!thumbResponse.ok) throw new Error('缩略图加载失败');
+
+                const thumbBlob = await thumbResponse.blob();
+                
+                // 检查图片ID是否匹配
+                if (currentImageId !== thisImageId) {
+                    return;
+                }
+
+                // 显示缩略图
+                const thumbUrl = URL.createObjectURL(thumbBlob);
+                image.src = thumbUrl;
+                
+                // 隐藏骨架屏
+                if (skeleton) skeleton.style.display = 'none';
+                image.style.display = 'block';
+                image.style.opacity = '1';
+                image.classList.add('loaded');
+                
+                // 清理旧的 blob URL
+                if (image._thumbUrl) {
+                    URL.revokeObjectURL(image._thumbUrl);
+                }
+                image._thumbUrl = thumbUrl;
+
+                // 预加载原图
+                fullImageAbortController = new AbortController();
+                const fullSignal = fullImageAbortController.signal;
+                const fullUrl = '/api/image/' + thisImageId + '/download?t=' + Date.now();
+
+                try {
+                    const fullResponse = await fetch(fullUrl, { signal: fullSignal });
+                    if (fullResponse.ok) {
+                        const fullBlob = await fullResponse.blob();
+                        
+                        // 检查图片ID是否匹配
+                        if (currentImageId !== thisImageId) {
+                            return;
+                        }
+
+                        const fullUrl2 = URL.createObjectURL(fullBlob);
+                        
+                        // 渐变切换到原图
+                        image.style.transition = 'opacity 0.3s ease';
+                        image.style.opacity = '0';
+
+                        setTimeout(() => {
+                            // 再次检查
+                            if (currentImageId !== thisImageId) {
+                                return;
+                            }
+                            
+                            // 清理旧的 blob URL
+                            if (image._fullUrl) {
+                                URL.revokeObjectURL(image._fullUrl);
+                            }
+                            
+                            image.src = fullUrl2;
+                            image._fullUrl = fullUrl2;
+                            image.style.transition = 'opacity 0.3s ease';
+                            image.style.opacity = '1';
+                            updateImageShadow(image);
+                        }, 300);
+                    }
+                } catch (e) {
+                    if (e.name === 'AbortError') {
+                        // 下载被取消，忽略
+                    }
+                }
+
+                updateImageShadow(image);
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    // 缩略图下载被取消
+                } else {
+                    console.error('加载图片失败:', e);
+                }
+            }
         }
-        
+
         // 更新角色进度
         if (currentRoleId) {
             await loadRoleProgress();
         }
-        
+
     } catch (e) {
-        if (loading) loading.style.display = 'none';
+        if (skeleton) skeleton.style.display = 'none';
         console.error('加载图片失败:', e);
     }
-}
-
-// ========== 加载角色进度 ==========
+}// ========== 加载角色进度 ==========
 async function loadRoleProgress() {
     try {
         const response = await fetch('/api/roles');
@@ -185,13 +580,23 @@ async function submitReview(status) {
     }
 }
 
-// ========== 上一张 ==========
+// ========== 上一张（渐进加载）==========
 async function prevImage() {
     if (historyStack.length === 0) {
         alert('没有上一张图片');
         return;
     }
-    
+
+    // 取消当前的下载
+    if (thumbnailAbortController) {
+        thumbnailAbortController.abort();
+        thumbnailAbortController = null;
+    }
+    if (fullImageAbortController) {
+        fullImageAbortController.abort();
+        fullImageAbortController = null;
+    }
+
     // 如果当前有图片且未审核，先审核为跳过
     if (currentImage && currentUser) {
         const userStatus = currentImage.is_reviewed_by_user;
@@ -205,22 +610,107 @@ async function prevImage() {
             });
         }
     }
-    
+
     currentImage = historyStack.pop();
-    
+    currentImageId = currentImage.id;  // 更新当前图片ID
+
     const image = document.getElementById('reviewImage');
     const loading = document.getElementById('loadingIndicator');
     const noImage = document.getElementById('noImageHint');
-    
+    const skeleton = document.getElementById('imageSkeleton');
+
+    // 显示骨架屏
+    if (skeleton) skeleton.style.display = 'flex';
     if (loading) loading.style.display = 'none';
     if (noImage) noImage.style.display = 'none';
     if (image) {
-        image.src = '/api/image/' + currentImage.id + '/download?' + Date.now();
-        image.style.display = 'block';
+        image.style.display = 'none';
+        image.classList.remove('loaded');
+        image.style.opacity = '0';
     }
-}
 
-// ========== 跳过（无法定夺） ==========
+    if (image) {
+        const thisImageId = currentImage.id;
+        
+        thumbnailAbortController = new AbortController();
+        const thumbnailSignal = thumbnailAbortController.signal;
+        
+        // 先加载缩略图
+        const thumbnailUrl = '/api/image/' + thisImageId + '/thumbnail?t=' + Date.now();
+
+        try {
+            const thumbResponse = await fetch(thumbnailUrl, { signal: thumbnailSignal });
+            if (!thumbResponse.ok) throw new Error('缩略图加载失败');
+            
+            const thumbBlob = await thumbResponse.blob();
+            
+            // 检查图片ID是否匹配
+            if (currentImageId !== thisImageId) {
+                return;
+            }
+
+            const thumbUrl = URL.createObjectURL(thumbBlob);
+            image.src = thumbUrl;
+            
+            if (skeleton) skeleton.style.display = 'none';
+            image.style.display = 'block';
+            image.style.opacity = '1';
+            image.classList.add('loaded');
+            
+            if (image._thumbUrl) {
+                URL.revokeObjectURL(image._thumbUrl);
+            }
+            image._thumbUrl = thumbUrl;
+
+            // 预加载原图
+            fullImageAbortController = new AbortController();
+            const fullSignal = fullImageAbortController.signal;
+            const fullUrl = '/api/image/' + thisImageId + '/download?t=' + Date.now();
+
+            try {
+                const fullResponse = await fetch(fullUrl, { signal: fullSignal });
+                if (fullResponse.ok) {
+                    const fullBlob = await fullResponse.blob();
+                    
+                    if (currentImageId !== thisImageId) {
+                        return;
+                    }
+
+                    const fullUrl2 = URL.createObjectURL(fullBlob);
+                    
+                    image.style.transition = 'opacity 0.3s ease';
+                    image.style.opacity = '0';
+
+                    setTimeout(() => {
+                        if (currentImageId !== thisImageId) {
+                            return;
+                        }
+                        
+                        if (image._fullUrl) {
+                            URL.revokeObjectURL(image._fullUrl);
+                        }
+                        
+                        image.src = fullUrl2;
+                        image._fullUrl = fullUrl2;
+                        image.style.transition = 'opacity 0.3s ease';
+                        image.style.opacity = '1';
+                        updateImageShadow(image);
+                    }, 300);
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    console.error('原图加载失败:', e);
+                }
+            }
+
+            updateImageShadow(image);
+        } catch (e) {
+            if (e.name !== 'AbortError') {
+                console.error('缩略图加载失败:', e);
+            }
+        }
+    }
+}// ========== 跳过（无法定夺） ==========
 async function skipImage() {
     if (!currentImage || !currentUser) return;
     
@@ -256,9 +746,13 @@ function downloadImage() {
 }
 
 // ========== 图片加载错误 ==========
-function imageLoadError() {
-    document.getElementById('loadingIndicator').style.display = 'none';
-    document.getElementById('noImageHint').style.display = 'block';
+window.imageLoadError = function() {
+    var loading = document.getElementById('loadingIndicator');
+    var noImage = document.getElementById('noImageHint');
+    var skeleton = document.getElementById('imageSkeleton');
+    if (loading) loading.style.display = 'none';
+    if (noImage) noImage.style.display = 'block';
+    if (skeleton) skeleton.style.display = 'none';
 }
 
 // ========== 修改昵称 ==========
@@ -315,7 +809,7 @@ async function showRoleModal() {
                 const item = document.createElement('div');
                 item.className = 'role-item';
                 item.onclick = () => selectRole(role.id);
-                
+
                 const avatar = role.avatar_path 
                     ? `<img src="/uploads/${role.avatar_path.split(/[/\\]/).pop()}" class="role-avatar" onerror="this.style.display='none'">`
                     : '<div class="role-avatar"></div>';
@@ -327,6 +821,7 @@ async function showRoleModal() {
                 `;
                 
                 if (roleList) roleList.appendChild(item);
+
             });
         }
         
@@ -441,7 +936,7 @@ function parseMarkdown(text) {
         // 代码（内容已经是转义的）
         .replace(/`(.+?)`/g, '<code>$1</code>')
         // 引用
-        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
         // 列表
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
@@ -483,6 +978,7 @@ async function loadSettings() {
             } else {
                 const votesData = await votesRes.json();
                 if (votesData.required_votes) {
+
                     appConfig.required_votes = votesData.required_votes;
                 }
             }
@@ -512,6 +1008,49 @@ window.onclick = function(event) {
     });
 };
 
+// ========== 移动端手势滑动切换 ==========
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+let isSwiping = false;
+
+document.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+    isSwiping = true;
+}, { passive: true });
+
+document.addEventListener('touchmove', function(e) {
+    if (!isSwiping) return;
+    touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+document.addEventListener('touchend', function(e) {
+    if (!isSwiping) return;
+    
+    touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
+    
+    const deltaX = touchEndX - touchStartX;
+    const deltaY = touchEndY - touchStartY;
+    const minSwipeDistance = 80;
+    
+    // 判断是否为主要水平滑动（排除垂直滑动）
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
+        if (deltaX > 0) {
+            // 向右滑动：上一张
+            prevImage();
+        } else {
+            // 向左滑动：跳过/下一张
+            skipImage();
+        }
+    }
+    
+    isSwiping = false;
+}, { passive: true });
+
 // ========== 键盘快捷键 ==========
 document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT') return;
@@ -535,3 +1074,4 @@ document.addEventListener('keydown', function(e) {
             break;
     }
 });
+
