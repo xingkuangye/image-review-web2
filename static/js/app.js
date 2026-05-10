@@ -936,7 +936,7 @@ function parseMarkdown(text) {
         // 代码（内容已经是转义的）
         .replace(/`(.+?)`/g, '<code>$1</code>')
         // 引用
-        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
         // 列表
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
