@@ -1,6 +1,6 @@
 # Image Review System
 
-A FastAPI-based image review system supporting multi-user collaboration.
+A FastAPI-based image review system supporting multi-user collaboration.1
 
 ## Quick Start
 
