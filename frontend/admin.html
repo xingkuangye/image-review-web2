@@ -62,7 +62,7 @@
                         <select id="userSort" onchange="loadUsers()">
                             <option value="id">按ID</option>
                             <option value="total_reviews">按审核数量</option>
-                            <option value="last_active">按最后上线</option>
+                            <option value="last_active">按最后活动时间</option>
                         </select>
                     </div>
                 </div>
@@ -140,7 +140,7 @@
                     <small class="hint-text">超过此天数的备份将自动删除</small>
                 </div>
                 <button class="btn btn-confirm" onclick="saveBackupSettings()">保存设置</button>
-                <p id="backupSettingsMsg" style="margin-top:12px;color:#4CAF50;display:none;">保存成功！</p>
+                <p id="backupSettingsMsg" style="margin-top:12px;color:#4CAF50;display:none;">保存成功</p>
             </div>
         </div>
 
@@ -177,7 +177,7 @@
                     <small class="hint-text">支持Markdown格式，可使用 # 标题、**粗体**、*斜体*、- 列表 等语法</small>
                 </div>
                 <button class="btn btn-confirm" onclick="saveSettings()">保存设置</button>
-                <p id="settingsMsg" style="margin-top:12px;color:#4CAF50;display:none;">保存成功！</p>
+                <p id="settingsMsg" style="margin-top:12px;color:#4CAF50;display:none;">保存成功</p>
             </div>
         </div>
     </div>

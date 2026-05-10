@@ -1,3 +1,115 @@
+/* ========== Loading Animations ========== */
+
+/* Skeleton loading animation */
+@keyframes skeleton-pulse {
+    0%, 100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, 
+        rgba(60, 60, 60, 0.4) 0%, 
+        rgba(80, 80, 80, 0.6) 50%, 
+        rgba(60, 60, 60, 0.4) 100%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+
+/* Loading spinner */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top-color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Image fade-in animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.image-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Shadow transition */
+.image-container {
+    transition: box-shadow 0.3s ease-out;
+}
+
+/* Button ripple effect */
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+.btn-ripple {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-ripple::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.3) 10%, transparent 10%);
+    background-repeat: no-repeat;
+    background-position: center;
+    transform: scale(0);
+    opacity: 0;
+}
+
+.btn-ripple:active::after {
+    animation: ripple 0.6s ease-out;
+}
+
+/* Progress bar pulse */
+@keyframes progress-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(76, 175, 80, 0);
+    }
+}
+
+.progress-fill {
+    transition: width 0.5s ease-out, box-shadow 0.3s ease;
+}
+
+.progress-fill.active {
+    animation: progress-pulse 2s ease-in-out infinite;
+}
+
 /* ========== Base Styles ========== */
 :root {
     --mobile-button-offset: 140px;
@@ -231,6 +343,10 @@ body {
     font-family: inherit;
     font-weight: 500;
     letter-spacing: 1px;
+    border-radius: 12px;
+    background-color: rgba(60, 60, 60, 0.8);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .btn:active {
@@ -241,66 +357,70 @@ body {
     position: absolute;
     left: 24px;
     top: 24px;
-    background-color: rgba(51, 51, 51, 0.9);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(80, 80, 80, 0.85);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     z-index: 50;
+    border-radius: 12px;
 }
 
 .btn-prev:hover {
-    background-color: rgba(68, 68, 68, 0.95);
-    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(100, 100, 100, 0.9);
+    border-color: rgba(255, 255, 255, 0.25);
 }
 
 .btn-skip {
     position: absolute;
     right: 24px;
     top: 24px;
-    background-color: rgba(102, 102, 102, 0.9);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(90, 90, 90, 0.85);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     z-index: 50;
+    border-radius: 12px;
 }
 
 .btn-skip:hover {
-    background-color: rgba(119, 119, 119, 0.95);
-    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(110, 110, 110, 0.9);
+    border-color: rgba(255, 255, 255, 0.25);
 }
 
 .btn-fail {
     position: absolute;
     left: 24px;
     bottom: 24px;
-    background-color: rgba(211, 47, 47, 0.9);
-    color: #fff;
+    background-color: rgba(180, 50, 50, 0.85);
+    color: #f5f5f5;
     padding: 16px 40px;
     font-size: 18px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 80, 80, 0.3);
     z-index: 50;
+    border-radius: 16px;
 }
 
 .btn-fail:hover {
-    background-color: rgba(244, 67, 54, 0.95);
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 4px 20px rgba(211, 47, 47, 0.4);
+    background-color: rgba(200, 60, 60, 0.9);
+    border-color: rgba(255, 100, 100, 0.4);
+    box-shadow: 0 4px 20px rgba(200, 50, 50, 0.4);
 }
 
 .btn-pass {
     position: absolute;
     right: 24px;
     bottom: 24px;
-    background-color: rgba(56, 142, 60, 0.9);
-    color: #fff;
+    background-color: rgba(50, 140, 60, 0.85);
+    color: #f5f5f5;
     padding: 16px 40px;
     font-size: 18px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(80, 200, 100, 0.3);
     z-index: 50;
+    border-radius: 16px;
 }
 
 .btn-pass:hover {
-    background-color: rgba(76, 175, 80, 0.95);
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 4px 20px rgba(56, 142, 60, 0.4);
+    background-color: rgba(60, 160, 70, 0.9);
+    border-color: rgba(100, 220, 120, 0.4);
+    box-shadow: 0 4px 20px rgba(60, 160, 70, 0.4);
 }
 
 .btn-download {
@@ -308,33 +428,35 @@ body {
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(25, 118, 210, 0.9);
-    color: #fff;
+    background-color: rgba(40, 100, 180, 0.85);
+    color: #e8e8e8;
     padding: 12px 28px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(80, 140, 220, 0.25);
     z-index: 50;
+    border-radius: 12px;
 }
 
 .btn-download:hover {
-    background-color: rgba(33, 150, 243, 0.95);
-    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(50, 120, 200, 0.9);
+    border-color: rgba(100, 160, 240, 0.35);
 }
 
 .btn-role-select {
     position: absolute;
     right: 24px;
     bottom: 110px;
-    background-color: rgba(51, 51, 51, 0.9);
-    color: #fff;
+    background-color: rgba(75, 60, 90, 0.85);
+    color: #e0e0e0;
     padding: 10px 20px;
     font-size: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(150, 120, 180, 0.25);
     z-index: 50;
+    border-radius: 12px;
 }
 
 .btn-role-select:hover {
-    background-color: rgba(68, 68, 68, 0.95);
-    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(95, 80, 110, 0.9);
+    border-color: rgba(170, 140, 200, 0.35);
 }
 
 /* ========== Image Container ========== */
@@ -345,11 +467,30 @@ body {
     align-items: center;
     justify-content: center;
     position: relative;
-    background-color: rgba(0, 0, 0, 0.4);
+    /* 强制移除阴影，覆盖内联样�?*/
+    
+    /* Shadow transition for smooth color/size changes */
+    transition: box-shadow 0.3s ease-out;
+}
+
+/* Image skeleton placeholder */
+.image-skeleton {
+    position: absolute;
+    max-width: 75%;
+    max-height: 65vh;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: var(--image-shadow);
     box-sizing: border-box;
+}
+
+.image-skeleton .skeleton {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
 }
 
 #reviewImage {
@@ -358,6 +499,8 @@ body {
     object-fit: contain;
     display: none;
 }
+
+
 
 .loading {
     position: absolute;
@@ -411,13 +554,14 @@ body {
 }
 
 .modal-content {
-    background-color: rgba(26, 26, 26, 0.95);
+    background-color: rgba(35, 35, 40, 0.95);
     margin: 60px auto;
     padding: 0;
     width: 90%;
     max-width: 600px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
 }
 
 .modal-content.modal-small {
@@ -578,21 +722,9 @@ body {
     color: rgba(255, 255, 255, 0.6);
 }
 
-/* ========== Scrollbar ========== */
+/* ========== Scrollbar - Hidden ========== */
 ::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(26, 26, 26, 0.8);
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(68, 68, 68, 0.8);
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(85, 85, 85, 0.9);
+    display: none;
 }
 
 /* ========== Disabled State ========== */
@@ -713,8 +845,10 @@ body {
         display: flex;
         align-items: flex-start;  /* Align to top for better UX when scrolling */
         justify-content: center;
-        box-shadow: var(--image-shadow);
         box-sizing: border-box;
+        /* Match desktop styles - but remove background for mobile to avoid gray box */
+        background-color: transparent !important;
+        border: none;
     }
 
     /* Mobile image - auto scale to fit container */

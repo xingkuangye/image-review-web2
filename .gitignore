@@ -45,3 +45,6 @@ Thumbs.db
 dist/
 original_backup/
 backup_v0.8/
+
+# 本地工具目录（不部署）
+tools/
