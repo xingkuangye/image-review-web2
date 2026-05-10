@@ -53,11 +53,23 @@ async def wait_for_download_slot(user_id: str) -> bool:
 
     return False
 
-async def release_download_slot(user_id: str):
-    """释放下载槽位 - 递减计数"""
+def release_download_slot(user_id: str):
+    """释放下载槽位"""
+    try:
+        loop = asyncio.get_running_loop()
+        loop.call_soon(lambda: asyncio.ensure_future(_process_next_in_queue(user_id)))
+    except RuntimeError:
+        pass
+
+async def _process_next_in_queue(user_id: str):
+    """处理用户下载队列中的下一个任务"""
     async with queue_lock:
-        if user_id in user_active_downloads and user_active_downloads[user_id] > 0:
-            user_active_downloads[user_id] -= 1
+        if user_id not in user_active_downloads:
+            return
+        if user_active_downloads.get(user_id, 0) >= MAX_CONCURRENT_DOWNLOADS_PER_USER:
+            return
+        # 分配槽位
+        user_active_downloads[user_id] = user_active_downloads.get(user_id, 0) + 1
 
 # 初始化 - 支持直接运行和模块运行
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -89,10 +101,10 @@ def run_auto_backup():
     try:
         from backend.backup import create_backup, cleanup_old_backups
         from backend.services import get_backup_retention_days
-
+        
         log_message("定时备份开始...")
         backup_path = create_backup()
-
+        
         if backup_path:
             cleanup_old_backups(get_backup_retention_days())
             log_message(f"定时备份成功: {backup_path}")
@@ -106,28 +118,28 @@ def backup_scheduler():
     global scheduler_running
     # 从数据库读取上次备份日期（持久化）
     last_backup_date = get_last_backup_date()
-
+    
     while scheduler_running:
         try:
             if not get_auto_backup_enabled():
                 time.sleep(60)  # 每分钟检查一次
                 continue
-
+            
             now = datetime.now()
             current_time = now.strftime("%H:%M")
             target_time = get_auto_backup_time()
             today_str = now.strftime("%Y-%m-%d")
-
+            
             # 检查是否到达备份时间且今天尚未备份
             if current_time == target_time and last_backup_date != today_str:
                 run_auto_backup()
                 last_backup_date = today_str
                 set_last_backup_date(today_str)  # 持久化到数据库
                 log_message(f"自动备份已执行，下次于 {target_time} 执行")
-
+        
         except Exception as e:
             log_message(f"调度器异常: {str(e)}")
-
+        
         time.sleep(30)  # 每30秒检查一次
 
 @app.on_event("startup")
@@ -140,7 +152,7 @@ async def startup():
     print(f"图片审核系统已启动")
     print(f"请使用管理员密码登录")
     print(f"{'='*50}\n")
-
+    
     # 启动时检查：如果已过备份时间且今天未备份，立即备份
     if get_auto_backup_enabled():
         now = datetime.now()
@@ -148,12 +160,12 @@ async def startup():
         target_time = get_auto_backup_time()
         today_str = now.strftime("%Y-%m-%d")
         last_backup = get_last_backup_date()
-
+        
         if current_time > target_time and last_backup != today_str:
             log_message(f"启动时检测到今日未备份，立即执行...")
             run_auto_backup()
             set_last_backup_date(today_str)
-
+    
     # 启动备份调度器
     scheduler_running = True
     scheduler_thread = threading.Thread(target=backup_scheduler, daemon=True)
@@ -201,13 +213,13 @@ async def get_user(user_id: str):
     cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
     conn.close()
-
+    
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
-
+    
     if user['is_banned']:
         raise HTTPException(status_code=403, detail="用户已被封禁")
-
+    
     update_user_activity(user_id)
     return create_or_get_user(user_id)
 
@@ -219,13 +231,13 @@ async def update_nickname(user_id: str, data: UserUpdate):
     cursor.execute("SELECT is_banned FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
     conn.close()
-
+    
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
-
+    
     if user['is_banned']:
         raise HTTPException(status_code=403, detail="用户已被封禁")
-
+    
     update_user_nickname(user_id, data.nickname)
     return {"success": True}
 
@@ -241,19 +253,19 @@ async def get_review_image(
     cursor.execute("SELECT is_banned FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
     conn.close()
-
+    
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
-
+    
     if user['is_banned']:
         raise HTTPException(status_code=403, detail="用户已被封禁")
-
+    
     update_user_activity(user_id)
     image = get_image_for_review(user_id, role_id)
-
+    
     if not image:
         return JSONResponse(content={"message": "暂无待审核图片", "image": None})
-
+    
     return {"image": image}
 
 @app.post("/api/image/{image_id}/review")
@@ -265,7 +277,7 @@ async def submit_image_review(
     """提交审核结果"""
     if status not in ['pass', 'fail', 'skip']:
         raise HTTPException(status_code=400, detail="无效的审核状态")
-
+    
     submit_review(image_id, user_id, status)
     log_message(f"用户 {user_id} 审核图片 {image_id}: {status}")
     return {"success": True}
@@ -287,7 +299,7 @@ async def download_image(image_id: int, user_id: str = None):
                 raise HTTPException(status_code=404, detail="图片不存在")
             return FileResponse(image['path'])
         finally:
-            await release_download_slot(user_id)
+            release_download_slot(user_id)
     else:
         conn = get_db()
         cursor = conn.cursor()
@@ -296,1199 +308,605 @@ async def download_image(image_id: int, user_id: str = None):
         conn.close()
         if not image:
             raise HTTPException(status_code=404, detail="图片不存在")
-        return FileResponse(image['path'])\n\ndef _compress_image(img, max_size=500*1024, initial_quality=85, quality_step=10,
+        return FileResponse(image['path'])
 
+
+
+def _compress_image(img, max_size=500*1024, initial_quality=85, quality_step=10,
                        min_quality=20, min_width=200, max_iterations=15):
-
-    """ÃÂ¥ÃÂÃÂÃÂ§ÃÂ¼ÃÂ©ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¥ÃÂÃÂ°ÃÂ¦ÃÂÃÂÃÂ¥ÃÂ®ÃÂÃÂ¥ÃÂ¤ÃÂ§ÃÂ¥ÃÂ°ÃÂÃÂ©ÃÂÃÂÃÂ¥ÃÂÃÂ¶ÃÂ¥ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?
-
+    """压缩图片到指定大小限制内。
     
-
     Args:
-
-        img: PIL ImageÃÂ¥ÃÂ¯ÃÂ¹ÃÂ¨ÃÂ±ÃÂ¡ÃÂ¯ÃÂ¼ÃÂÃÂ¤ÃÂ¸ÃÂÃÂ¤ÃÂ¼ÃÂÃÂ¤ÃÂ¿ÃÂ®ÃÂ¦ÃÂÃÂ¹ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂ¾ÃÂ¯ÃÂ¼ÃÂ
-
-        max_size: ÃÂ¦ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ§ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂ¤ÃÂ§ÃÂ¥ÃÂ°ÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂ­ÃÂÃÂ¨ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂ»ÃÂÃÂ¨ÃÂ®ÃÂ¤500KB
-
-        initial_quality: ÃÂ¥ÃÂÃÂÃÂ¥ÃÂ§ÃÂÃÂ¥ÃÂÃÂÃÂ§ÃÂ¼ÃÂ©ÃÂ¨ÃÂ´ÃÂ¨ÃÂ©ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂ»ÃÂÃÂ¯ÃÂ¿ÃÂ½?5
-
-        quality_step: ÃÂ¨ÃÂ´ÃÂ¨ÃÂ©ÃÂÃÂÃÂ©ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂ­ÃÂ¥ÃÂ©ÃÂÃÂ¿ÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂ»ÃÂÃÂ¯ÃÂ¿ÃÂ½?0
-
-        min_quality: ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ½ÃÂÃÂ¨ÃÂ´ÃÂ¨ÃÂ©ÃÂÃÂÃÂ©ÃÂÃÂÃÂ¥ÃÂÃÂ¼ÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂ»ÃÂÃÂ¨ÃÂ®ÃÂ¤20
-
-        min_width: ÃÂ¦ÃÂÃÂÃÂ¥ÃÂ°ÃÂÃÂ¥ÃÂ®ÃÂ½ÃÂ¥ÃÂºÃÂ¦ÃÂ©ÃÂÃÂÃÂ¥ÃÂÃÂ¼ÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂ»ÃÂÃÂ¨ÃÂ®ÃÂ¤200px
-
-        max_iterations: ÃÂ¦ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ§ÃÂ¨ÃÂ¿ÃÂ­ÃÂ¤ÃÂ»ÃÂ£ÃÂ¦ÃÂ¬ÃÂ¡ÃÂ¦ÃÂÃÂ°ÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂ»ÃÂÃÂ¨ÃÂ®ÃÂ¤15
-
+        img: PIL Image对象（不会修改原图）
+        max_size: 最大文件大小（字节），默认500KB
+        initial_quality: 初始压缩质量，默认85
+        quality_step: 质量递减步长，默认10
+        min_quality: 最低质量阈值，默认20
+        min_width: 最小宽度阈值，默认200px
+        max_iterations: 最大迭代次数，默认15
     
-
     Returns:
-
-        bytes: ÃÂ¥ÃÂÃÂÃÂ§ÃÂ¼ÃÂ©ÃÂ¥ÃÂÃÂÃÂ§ÃÂÃÂJPEGÃÂ¥ÃÂ­ÃÂÃÂ¨ÃÂÃÂÃÂ¦ÃÂÃÂ°ÃÂ¦ÃÂÃÂ®
-
+        bytes: 压缩后的JPEG字节数据
     """
-
-    # ÃÂ¥ÃÂÃÂ¨ÃÂ¥ÃÂÃÂ¯ÃÂ¦ÃÂÃÂ¬ÃÂ¤ÃÂ¸ÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ½ÃÂÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂÃÂ¿ÃÂ¥ÃÂÃÂÃÂ¤ÃÂ¿ÃÂ®ÃÂ¦ÃÂÃÂ¹ÃÂ¥ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?
-
+    # 在副本上操作，避免修改原图
     img = img.copy()
-
     quality = initial_quality
-
     iterations = 0
-
     best_bytes = None
-
     best_size = float('inf')
-
     
-
     while iterations < max_iterations:
-
         iterations += 1
-
         output = io.BytesIO()
-
         img.save(output, format='JPEG', quality=quality, optimize=True)
-
         output.seek(0)
-
         data = output.getvalue()
-
         size = len(data)
-
         
-
         if size <= max_size:
-
             return data
-
         
-
-        # ÃÂ¨ÃÂ®ÃÂ°ÃÂ¥ÃÂ½ÃÂÃÂ¥ÃÂ½ÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ½ÃÂ³ÃÂ§ÃÂ»ÃÂÃÂ¯ÃÂ¿ÃÂ½?
-
+        # 记录当前最佳结果
         if size < best_size:
-
             best_bytes = data
-
             best_size = size
-
         
-
-        # ÃÂ¨ÃÂ¾ÃÂ¾ÃÂ¥ÃÂÃÂ°ÃÂ¨ÃÂ´ÃÂ¨ÃÂ©ÃÂÃÂÃÂ¤ÃÂ¸ÃÂÃÂ©ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂ°ÃÂÃÂ¨ÃÂ¯ÃÂÃÂ§ÃÂ¼ÃÂ©ÃÂ¥ÃÂ°ÃÂÃÂ¥ÃÂ°ÃÂºÃÂ¥ÃÂ¯ÃÂ¸
-
+        # 达到质量下限，先尝试缩小尺寸
         if quality <= min_quality and img.size[0] > min_width:
-
             new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
-
             img = img.resize(new_size, Image.Resampling.LANCZOS)
-
             quality = min(quality + quality_step, 70) if iterations > 3 else quality
-
             continue
-
         
-
-        # ÃÂ©ÃÂÃÂÃÂ¤ÃÂ½ÃÂÃÂ¨ÃÂ´ÃÂ¨ÃÂ©ÃÂÃÂ
-
+        # 降低质量
         if quality > min_quality:
-
             quality -= quality_step
-
         elif img.size[0] > min_width:
-
             new_size = (int(img.size[0] * 0.75), int(img.size[1] * 0.75))
-
             img = img.resize(new_size, Image.Resampling.LANCZOS)
-
         else:
-
             break
-
     
-
-    # ÃÂ¥ÃÂ¦ÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¨ÃÂ¿ÃÂ­ÃÂ¤ÃÂ»ÃÂ£ÃÂ©ÃÂÃÂ½ÃÂ¦ÃÂÃÂ ÃÂ¦ÃÂ³ÃÂÃÂ¦ÃÂ»ÃÂ¡ÃÂ¨ÃÂ¶ÃÂ³ÃÂ¥ÃÂ¤ÃÂ§ÃÂ¥ÃÂ°ÃÂÃÂ¨ÃÂ¦ÃÂÃÂ¦ÃÂ±ÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¨ÃÂ¿ÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ½ÃÂ³ÃÂ§ÃÂ»ÃÂÃÂ¯ÃÂ¿ÃÂ½?
-
+    # 如果所有迭代都无法满足大小要求，返回最佳结果
     if best_bytes is not None:
-
         return best_bytes
-
     
-
-    # ÃÂ¦ÃÂÃÂÃÂ§ÃÂ»ÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂºÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂ¼ÃÂºÃÂ¥ÃÂÃÂ¶ÃÂ¤ÃÂ½ÃÂ¿ÃÂ§ÃÂÃÂ¨ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ½ÃÂÃÂ¨ÃÂ´ÃÂ¨ÃÂ¯ÃÂ¿ÃÂ½?
-
+    # 最终兜底：强制使用最低质量
     output = io.BytesIO()
-
     img.save(output, format='JPEG', quality=min_quality, optimize=True)
-
     return output.getvalue()
 
 
-
-
-
 @app.get("/api/image/{image_id}/thumbnail")
-
 async def get_thumbnail(image_id: int):
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ§ÃÂ¼ÃÂ©ÃÂ§ÃÂ¼ÃÂ©ÃÂ§ÃÂÃÂ¥ÃÂ¥ÃÂÃÂ¾ÃÂ¯ÃÂ¼ÃÂÃÂ§ÃÂ¡ÃÂ®ÃÂ¤ÃÂ¿ÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂ°ÃÂÃÂ¤ÃÂºÃÂ500KB"""
-
+    """获取压缩缩略图，确保文件小于500KB"""
     conn = get_db()
-
     cursor = conn.cursor()
-
     cursor.execute("SELECT path FROM images WHERE id = ?", (image_id,))
-
     image = cursor.fetchone()
-
     conn.close()
 
-
-
     if not image:
-
-        raise HTTPException(status_code=404, detail="ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¤ÃÂ¸ÃÂÃÂ¥ÃÂ­ÃÂÃÂ¯ÃÂ¿ÃÂ½?)
-
-
+        raise HTTPException(status_code=404, detail="图片不存在")
 
     original_path = image['path']
 
-
-
     try:
-
         with Image.open(original_path) as img:
-
-            # ÃÂ¨ÃÂ½ÃÂ¬ÃÂ¦ÃÂÃÂ¢ÃÂ¯ÃÂ¿ÃÂ½?RGBÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂ¤ÃÂÃÂ¯ÃÂ¿ÃÂ½?PNG ÃÂ©ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ©ÃÂÃÂÃÂ©ÃÂÃÂÃÂ§ÃÂ­ÃÂÃÂ¯ÃÂ¼ÃÂ
-
+            # 转换为 RGB（处理 PNG 透明通道等）
             if img.mode in ('RGBA', 'LA', 'P'):
-
                 img = img.convert('RGB')
 
-
-
-            # ÃÂ¨ÃÂ®ÃÂ¡ÃÂ§ÃÂ®ÃÂÃÂ§ÃÂ¼ÃÂ©ÃÂ¦ÃÂÃÂ¾ÃÂ¦ÃÂ¯ÃÂÃÂ¤ÃÂ¾ÃÂ
-
+            # 计算缩放比例
             width, height = img.size
-
             if width > THUMBNAIL_MAX_SIZE or height > THUMBNAIL_MAX_SIZE:
-
                 ratio = min(THUMBNAIL_MAX_SIZE / width, THUMBNAIL_MAX_SIZE / height)
-
                 new_width = int(width * ratio)
-
                 new_height = int(height * ratio)
-
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-
-
-            # ÃÂ¥ÃÂÃÂÃÂ§ÃÂ¼ÃÂ©ÃÂ¯ÃÂ¿ÃÂ½?00KBÃÂ¤ÃÂ»ÃÂ¥ÃÂ¥ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ§ÃÂÃÂ´ÃÂ¦ÃÂÃÂ¥ÃÂ¨ÃÂ¿ÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂ­ÃÂÃÂ¨ÃÂÃÂÃÂ¦ÃÂÃÂ°ÃÂ¯ÃÂ¿ÃÂ½?
-
+            # 压缩到500KB以内，直接返回字节数据
             compressed_data = _compress_image(img)
-
             return StreamingResponse(
-
                 io.BytesIO(compressed_data),
-
                 media_type="image/jpeg"
-
             )
-
-
 
     except Exception:
-
-        # ÃÂ¨ÃÂ®ÃÂ°ÃÂ¥ÃÂ½ÃÂÃÂ§ÃÂ¼ÃÂ©ÃÂ§ÃÂÃÂ¥ÃÂ¥ÃÂÃÂ¾ÃÂ¥ÃÂ¤ÃÂÃÂ§ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ±ÃÂ¨ÃÂ´ÃÂ¥ÃÂ§ÃÂÃÂÃÂ¥ÃÂ¼ÃÂÃÂ¥ÃÂ¸ÃÂ¸ÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂÃÂ¿ÃÂ¥ÃÂÃÂÃÂ©ÃÂÃÂÃÂ©ÃÂ»ÃÂÃÂ¥ÃÂ¤ÃÂ±ÃÂ¯ÃÂ¿ÃÂ½?
-
-        logger.exception("ÃÂ§ÃÂ¼ÃÂ©ÃÂ§ÃÂÃÂ¥ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ±ÃÂ¯ÃÂ¿ÃÂ½?%s, ÃÂ¨ÃÂ¿ÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂ¾", original_path)
-
+        # 记录缩略图处理失败的异常，避免静默失败
+        logger.exception("缩略图生成失败 %s, 返回原图", original_path)
         return FileResponse(original_path)
 
-
-
 @app.get("/api/stats")
-
 async def get_stats():
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ§ÃÂ»ÃÂÃÂ¨ÃÂ®ÃÂ¡ÃÂ¦ÃÂÃÂ°ÃÂ¦ÃÂÃÂ®"""
-
+    """获取统计数据"""
     return get_overall_stats()
 
-
-
 @app.get("/api/roles")
-
 async def get_roles():
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¨ÃÂ§ÃÂÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """获取所有角色"""
     return get_all_roles()
-
-
 
 @app.get("/api/admin/disputed-images")
-
 async def admin_get_disputed_images(x_admin_password: str = Header(None)):
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂºÃÂÃÂ¨ÃÂ®ÃÂ®ÃÂ§ÃÂÃÂÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂÃÂÃÂ¨ÃÂ¦ÃÂÃÂ§ÃÂ®ÃÂ¡ÃÂ§ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ©ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """获取所有有争议的图片（需要管理员权限）"""
     verify_admin(x_admin_password)
-
     return get_disputed_images()
 
-
-
 @app.get("/api/settings")
-
 async def get_all_settings():
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¨ÃÂ®ÃÂ¾ÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """获取所有设置"""
     return get_settings()
 
-
-
 @app.get("/api/settings/review-rule")
-
 async def get_review_rule_api():
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¥ÃÂ®ÃÂ¡ÃÂ¦ÃÂ ÃÂ¸ÃÂ¨ÃÂ§ÃÂÃÂ¥ÃÂÃÂ"""
-
+    """获取审核规则"""
     return {"content": get_setting("review_rule") or ""}
 
-
-
 @app.get("/api/settings/title")
-
 async def get_title():
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ©ÃÂ¡ÃÂµÃÂ©ÃÂÃÂ¢ÃÂ¦ÃÂ ÃÂÃÂ©ÃÂ¢ÃÂ"""
-
-    return {"title": get_setting("title") or "ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¥ÃÂ®ÃÂ¡ÃÂ¦ÃÂ ÃÂ¸ÃÂ§ÃÂ³ÃÂ»ÃÂ§ÃÂ»ÃÂ"}
-
-
+    """获取页面标题"""
+    return {"title": get_setting("title") or "图片审核系统"}
 
 @app.get("/api/settings/votes")
-
 async def get_votes_config():
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ§ÃÂ¥ÃÂ¨ÃÂ©ÃÂÃÂÃÂ§ÃÂ½ÃÂ®"""
-
+    """获取投票配置"""
     from backend.services import REQUIRED_VOTES
-
     return {"required_votes": REQUIRED_VOTES}
 
-
-
 @app.get("/api/settings/icon")
-
 async def get_icon():
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ©ÃÂ¡ÃÂµÃÂ©ÃÂÃÂ¢ÃÂ¥ÃÂÃÂ¾ÃÂ¦ÃÂ ÃÂ"""
-
+    """获取页面图标"""
     return {"icon": get_setting("icon") or ""}
 
-
-
-# ============ ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂ°API ============
-
-
+# ============ 后台API ============
 
 @app.get("/api/admin/verify")
-
 async def verify_admin_password(x_admin_password: str = Header(None)):
-
-    """ÃÂ©ÃÂªÃÂÃÂ¨ÃÂ¯ÃÂÃÂ§ÃÂ®ÃÂ¡ÃÂ§ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂ¯ÃÂÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """验证管理员密码"""
     global admin_password
-
     if admin_password is None:
-
         admin_password = generate_admin_password()
-
     
-
     if x_admin_password != admin_password:
-
         return {"valid": False}
-
     return {"valid": True}
 
-
-
 @app.post("/api/admin/roles")
-
 async def admin_create_role(
-
     name: str = Form(...),
-
     image_path: str = Form(...),
-
     avatar: UploadFile = File(None),
-
     x_admin_password: str = Header(None)
-
 ):
-
-    """ÃÂ¥ÃÂÃÂÃÂ¥ÃÂ»ÃÂºÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²"""
-
+    """创建角色"""
     verify_admin(x_admin_password)
-
     
-
     avatar_path = None
-
     if avatar:
-
-        # ÃÂ¥ÃÂ®ÃÂÃÂ¥ÃÂÃÂ¨ÃÂ¯ÃÂ¼ÃÂÃÂ¦ÃÂ£ÃÂÃÂ¦ÃÂÃÂ¥ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂ¤ÃÂ§ÃÂ¯ÃÂ¿ÃÂ½?
-
+        # 安全：检查文件大小
         avatar_content = await avatar.read()
-
         if len(avatar_content) > MAX_FILE_SIZE:
-
-            raise HTTPException(status_code=400, detail="ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¨ÃÂ¿ÃÂÃÂ¥ÃÂ¤ÃÂ§ÃÂ¯ÃÂ¼ÃÂÃÂ¦ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?MB")
-
+            raise HTTPException(status_code=400, detail="文件过大，最大5MB")
         
-
-        # ÃÂ¥ÃÂ®ÃÂÃÂ¥ÃÂÃÂ¨ÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂÃÂªÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂÃÂ²ÃÂ¦ÃÂ­ÃÂ¢ÃÂ¨ÃÂ·ÃÂ¯ÃÂ¥ÃÂ¾ÃÂÃÂ©ÃÂÃÂÃÂ¥ÃÂÃÂ
-
+        # 安全：只提取文件名，防止路径遍历
         safe_filename = os.path.basename(avatar.filename)
-
         filename = f"{uuid.uuid4()}_{safe_filename}"
-
         avatar_path = os.path.join(UPLOADS_DIR, filename)
-
         with open(avatar_path, 'wb') as f:
-
             f.write(avatar_content)
-
     
-
     role = create_role(name, image_path, avatar_path)
-
-    log_message(f"ÃÂ¥ÃÂÃÂÃÂ¥ÃÂ»ÃÂºÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²: {name} (ÃÂ¨ÃÂ·ÃÂ¯ÃÂ¥ÃÂ¾ÃÂ: {image_path})")
-
+    log_message(f"创建角色: {name} (路径: {image_path})")
     return role
 
-
-
 @app.get("/api/admin/roles")
-
 async def admin_get_roles(x_admin_password: str = Header(None)):
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¨ÃÂ§ÃÂÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """获取所有角色"""
     verify_admin(x_admin_password)
-
     return get_all_roles()
 
-
-
 @app.post("/api/admin/roles/{role_id}/refresh")
-
 async def admin_refresh_role(role_id: int, x_admin_password: str = Header(None)):
-
-    """ÃÂ¥ÃÂÃÂ·ÃÂ¦ÃÂÃÂ°ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂ"""
-
+    """刷新角色图片"""
     verify_admin(x_admin_password)
-
-    # ÃÂ¤ÃÂ½ÃÂ¿ÃÂ§ÃÂÃÂ¨ÃÂ§ÃÂºÃÂ¿ÃÂ§ÃÂ¨ÃÂÃÂ¦ÃÂ±ÃÂ ÃÂ¦ÃÂÃÂ§ÃÂ¨ÃÂ¡ÃÂÃÂ¥ÃÂÃÂ¨ÃÂ©ÃÂÃÂ¿ÃÂ¥ÃÂÃÂÃÂ©ÃÂÃÂ»ÃÂ¥ÃÂ¡ÃÂÃÂ¤ÃÂºÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂ¾ÃÂªÃÂ§ÃÂÃÂ¯
-
+    # 使用线程池执行器避免阻塞事件循环
     loop = asyncio.get_running_loop()
-
     success = await loop.run_in_executor(None, refresh_role_images, role_id)
-
     if success:
-
-        log_message(f"ÃÂ¥ÃÂÃÂ·ÃÂ¦ÃÂÃÂ°ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ² {role_id} ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂ")
-
+        log_message(f"刷新角色 {role_id} 图片成功")
         return {"success": True}
-
     else:
-
-        log_message(f"ÃÂ¥ÃÂÃÂ·ÃÂ¦ÃÂÃÂ°ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ² {role_id} ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ±ÃÂ¨ÃÂ´ÃÂ¥")
-
-        return {"success": False, "error": "ÃÂ¥ÃÂÃÂ·ÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂ¤ÃÂ±ÃÂ¨ÃÂ´ÃÂ¥ÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂÃÂ¯ÃÂ¨ÃÂÃÂ½ÃÂ¦ÃÂÃÂ¯ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²ÃÂ¤ÃÂ¸ÃÂÃÂ¥ÃÂ­ÃÂÃÂ¥ÃÂÃÂ¨ÃÂ¦ÃÂÃÂÃÂ¨ÃÂ·ÃÂ¯ÃÂ¥ÃÂ¾ÃÂÃÂ¦ÃÂÃÂ ÃÂ¦ÃÂÃÂ"}
-
-
+        log_message(f"刷新角色 {role_id} 图片失败")
+        return {"success": False, "error": "刷新失败，可能是角色不存在或路径无效"}
 
 @app.put("/api/admin/roles/{role_id}")
-
 async def admin_update_role(
-
     role_id: int,
-
     name: str = Form(...),
-
     image_path: str = Form(...),
-
     refresh_images: str = Form(None),
-
     avatar: UploadFile = File(None),
-
     x_admin_password: str = Header(None)
-
 ):
-
-    """ÃÂ¤ÃÂ¿ÃÂ®ÃÂ¦ÃÂÃÂ¹ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²"""
-
+    """修改角色"""
     verify_admin(x_admin_password)
-
     
-
     conn = get_db()
-
     cursor = conn.cursor()
-
     
-
-    # ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¥ÃÂ½ÃÂÃÂ¥ÃÂÃÂÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²ÃÂ¤ÃÂ¿ÃÂ¡ÃÂ¦ÃÂÃÂ¯
-
+    # 获取当前角色信息
     cursor.execute("SELECT * FROM roles WHERE id = ?", (role_id,))
-
     role = cursor.fetchone()
-
     
-
     if not role:
-
         conn.close()
-
-        raise HTTPException(status_code=404, detail="ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²ÃÂ¤ÃÂ¸ÃÂÃÂ¥ÃÂ­ÃÂÃÂ¯ÃÂ¿ÃÂ½?)
-
+        raise HTTPException(status_code=404, detail="角色不存在")
     
-
     avatar_path = role['avatar_path']
-
     
-
-    # ÃÂ¥ÃÂ¤ÃÂÃÂ§ÃÂÃÂÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂ¤ÃÂ´ÃÂ¯ÃÂ¿ÃÂ½?- ÃÂ¥ÃÂ®ÃÂÃÂ¥ÃÂÃÂ¨ÃÂ¥ÃÂ¤ÃÂÃÂ§ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ§ÃÂ¥ÃÂ°ÃÂ
-
+    # 处理新头像 - 安全处理文件名和大小
     if avatar and avatar.filename:
-
         avatar_content = await avatar.read()
-
         if len(avatar_content) > MAX_FILE_SIZE:
-
-            raise HTTPException(status_code=400, detail="ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¨ÃÂ¿ÃÂÃÂ¥ÃÂ¤ÃÂ§ÃÂ¯ÃÂ¼ÃÂÃÂ¦ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?MB")
-
+            raise HTTPException(status_code=400, detail="文件过大，最大5MB")
         
-
         safe_filename = os.path.basename(avatar.filename)
-
         filename = f"{uuid.uuid4()}_{safe_filename}"
-
         avatar_path = os.path.join(UPLOADS_DIR, filename)
-
         with open(avatar_path, 'wb') as f:
-
             f.write(avatar_content)
-
     
-
-    # ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²ÃÂ¤ÃÂ¿ÃÂ¡ÃÂ¦ÃÂÃÂ¯
-
+    # 更新角色信息
     cursor.execute(
-
         "UPDATE roles SET name = ?, image_path = ?, avatar_path = ? WHERE id = ?",
-
         (name, image_path, avatar_path, role_id)
-
     )
-
     conn.commit()
-
     
-
-    # ÃÂ¥ÃÂ¦ÃÂÃÂ¦ÃÂÃÂÃÂ©ÃÂÃÂÃÂ¨ÃÂ¦ÃÂÃÂ¥ÃÂÃÂ·ÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¤ÃÂ½ÃÂ¿ÃÂ§ÃÂÃÂ¨ÃÂ§ÃÂºÃÂ¿ÃÂ§ÃÂ¨ÃÂÃÂ¦ÃÂ±ÃÂ ÃÂ¦ÃÂÃÂ§ÃÂ¨ÃÂ¡ÃÂÃÂ¥ÃÂÃÂ¨ÃÂ©ÃÂÃÂ¿ÃÂ¥ÃÂÃÂÃÂ©ÃÂÃÂ»ÃÂ¥ÃÂ¡ÃÂ
-
+    # 如果需要刷新图片，使用线程池执行器避免阻塞
     refresh_success = True
-
     if refresh_images and refresh_images.lower() == 'true':
-
         loop = asyncio.get_running_loop()
-
         refresh_success = await loop.run_in_executor(None, refresh_role_images, role_id)
-
         if not refresh_success:
-
-            log_message(f"ÃÂ¤ÃÂ¿ÃÂ®ÃÂ¦ÃÂÃÂ¹ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ² {role_id} ÃÂ¦ÃÂÃÂ¶ÃÂ¥ÃÂÃÂ·ÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ±ÃÂ¯ÃÂ¿ÃÂ½?)
-
+            log_message(f"修改角色 {role_id} 时刷新图片失败")
     
-
     conn.close()
-
-    log_message(f"ÃÂ¤ÃÂ¿ÃÂ®ÃÂ¦ÃÂÃÂ¹ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ² {role_id}: {name} (ÃÂ¨ÃÂ·ÃÂ¯ÃÂ¥ÃÂ¾ÃÂ: {image_path})")
-
+    log_message(f"修改角色 {role_id}: {name} (路径: {image_path})")
     
-
-    # ÃÂ¨ÃÂ¿ÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂ¬ÃÂ¥ÃÂÃÂ·ÃÂ¦ÃÂÃÂ°ÃÂ§ÃÂÃÂ¶ÃÂ¦ÃÂÃÂÃÂ§ÃÂÃÂÃÂ§ÃÂ»ÃÂÃÂ¦ÃÂÃÂ
-
+    # 返回包括刷新状态的结果
     if not refresh_success:
-
-        return {"success": True, "refresh_success": False, "error": "ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²ÃÂ¤ÃÂ¿ÃÂ¡ÃÂ¦ÃÂÃÂ¯ÃÂ¥ÃÂ·ÃÂ²ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ¯ÃÂ¼ÃÂÃÂ¤ÃÂ½ÃÂÃÂ¥ÃÂÃÂ·ÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ±ÃÂ¨ÃÂ´ÃÂ¥ÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂÃÂ¯ÃÂ¨ÃÂÃÂ½ÃÂ¦ÃÂÃÂ¯ÃÂ¨ÃÂ·ÃÂ¯ÃÂ¥ÃÂ¾ÃÂÃÂ¦ÃÂÃÂ ÃÂ¯ÃÂ¿ÃÂ½?}
-
+        return {"success": True, "refresh_success": False, "error": "角色信息已更新，但刷新图片失败，可能是路径无效"}
     return {"success": True}
-
-
 
 @app.delete("/api/admin/roles/{role_id}")
-
 async def admin_delete_role(role_id: int, x_admin_password: str = Header(None)):
-
-    """ÃÂ¥ÃÂÃÂ ÃÂ©ÃÂÃÂ¤ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²"""
-
+    """删除角色"""
     verify_admin(x_admin_password)
-
     delete_role(role_id)
-
-    log_message(f"ÃÂ¥ÃÂÃÂ ÃÂ©ÃÂÃÂ¤ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ² {role_id}")
-
+    log_message(f"删除角色 {role_id}")
     return {"success": True}
-
-
 
 @app.get("/api/admin/users")
-
 async def admin_get_users(sort_by: str = "id", x_admin_password: str = Header(None)):
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ§ÃÂÃÂ¨ÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """获取所有用户"""
     verify_admin(x_admin_password)
-
     return get_all_users(sort_by)
 
-
-
 @app.get("/api/admin/users/{user_id}/reviews")
-
 async def admin_get_user_reviews(user_id: str, x_admin_password: str = Header(None)):
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ§ÃÂÃÂ¨ÃÂ¦ÃÂÃÂ·ÃÂ¥ÃÂ®ÃÂ¡ÃÂ¦ÃÂ ÃÂ¸ÃÂ¨ÃÂ®ÃÂ°ÃÂ¥ÃÂ½ÃÂ"""
-
+    """获取用户审核记录"""
     verify_admin(x_admin_password)
-
     return get_user_reviews(user_id)
 
-
-
 @app.delete("/api/admin/reviews/{review_id}")
-
 async def admin_delete_review(review_id: int, x_admin_password: str = Header(None)):
-
-    """ÃÂ¥ÃÂÃÂ ÃÂ©ÃÂÃÂ¤ÃÂ¥ÃÂ®ÃÂ¡ÃÂ¦ÃÂ ÃÂ¸ÃÂ¨ÃÂ®ÃÂ°ÃÂ¥ÃÂ½ÃÂ"""
-
+    """删除审核记录"""
     verify_admin(x_admin_password)
-
     delete_review(review_id)
-
     return {"success": True}
-
-
 
 @app.delete("/api/admin/users/{user_id}/reviews")
-
 async def admin_clear_user_reviews(user_id: str, x_admin_password: str = Header(None)):
-
-    """ÃÂ¦ÃÂ¸ÃÂÃÂ©ÃÂÃÂ¤ÃÂ§ÃÂÃÂ¨ÃÂ¦ÃÂÃÂ·ÃÂ¥ÃÂ®ÃÂ¡ÃÂ¦ÃÂ ÃÂ¸ÃÂ¨ÃÂ®ÃÂ°ÃÂ¥ÃÂ½ÃÂ"""
-
+    """清除用户审核记录"""
     verify_admin(x_admin_password)
-
     clear_user_reviews(user_id)
-
-    log_message(f"ÃÂ¦ÃÂ¸ÃÂÃÂ©ÃÂÃÂ¤ÃÂ§ÃÂÃÂ¨ÃÂ¦ÃÂÃÂ· {user_id} ÃÂ§ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¥ÃÂ®ÃÂ¡ÃÂ¦ÃÂ ÃÂ¸ÃÂ¨ÃÂ®ÃÂ°ÃÂ¯ÃÂ¿ÃÂ½?)
-
+    log_message(f"清除用户 {user_id} 的所有审核记录")
     return {"success": True}
-
-
 
 @app.post("/api/admin/users/{user_id}/ban")
-
 async def admin_ban_user(user_id: str, banned: bool = Form(True), x_admin_password: str = Header(None)):
-
-    """ÃÂ¥ÃÂ°ÃÂÃÂ§ÃÂ¦ÃÂ/ÃÂ¨ÃÂ§ÃÂ£ÃÂ¥ÃÂ°ÃÂÃÂ§ÃÂÃÂ¨ÃÂ¦ÃÂÃÂ·"""
-
+    """封禁/解封用户"""
     verify_admin(x_admin_password)
-
     ban_user(user_id, banned)
-
-    log_message(f"ÃÂ§ÃÂÃÂ¨ÃÂ¦ÃÂÃÂ· {user_id} {'ÃÂ¥ÃÂ°ÃÂÃÂ§ÃÂ¦ÃÂ' if banned else 'ÃÂ¨ÃÂ§ÃÂ£ÃÂ¥ÃÂ°ÃÂ'}")
-
+    log_message(f"用户 {user_id} {'封禁' if banned else '解封'}")
     return {"success": True}
 
-
-
 @app.get("/api/admin/stats")
-
 async def admin_get_stats(x_admin_password: str = Header(None)):
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂ°ÃÂ§ÃÂ»ÃÂÃÂ¨ÃÂ®ÃÂ¡"""
-
+    """获取后台统计"""
     verify_admin(x_admin_password)
-
     stats = get_overall_stats()
-
     roles = get_all_roles()
-
     
-
     role_stats = []
-
     for role in roles:
-
         rs = get_role_stats(role.id)
-
         if rs:
-
             role_stats.append({
-
                 "role": role,
-
                 "stats": rs
-
             })
-
     
-
     return {
-
         "overall": stats,
-
         "roles": role_stats
-
     }
 
-
-
 @app.get("/api/admin/export")
-
 async def admin_export_approved(x_admin_password: str = Header(None)):
-
     """Export all approved images (by role folder).
-
     Optimization: batch status query, pre-group by role_id, thread pool for DB ops.
-
     """
-
     verify_admin(x_admin_password)
-
     conn = get_db()
-
     cursor = conn.cursor()
 
-
-
     export_dir = os.path.join(BASE_DIR, 'exports')
-
     os.makedirs(export_dir, exist_ok=True)
 
-
-
     zip_filename = f"Approved_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-
     zip_path = os.path.join(export_dir, zip_filename)
 
-
-
     try:
-
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-
             # Get all roles
-
             cursor.execute("SELECT id, name FROM roles")
-
             roles = cursor.fetchall()
 
-
-
             # Batch fetch all images
-
             cursor.execute("SELECT id, path, role_id FROM images")
-
             all_images = cursor.fetchall()
 
-
-
             # Pre-group images by role_id (O(I) instead of O(R*I))
-
             images_by_role = {}
-
             for img in all_images:
-
                 rid = img['role_id']
-
                 if rid not in images_by_role:
-
                     images_by_role[rid] = []
-
                 images_by_role[rid].append(img)
 
-
-
             # Batch fetch all image statuses (single query, no N+1)
-
             image_ids = [img['id'] for img in all_images]
-
             loop = asyncio.get_running_loop()
-
             image_statuses = await loop.run_in_executor(
-
                 None, get_image_final_statuses_batch, image_ids
-
             )
 
-
-
             total_count = 0
-
             for role in roles:
-
                 role_id, role_name = role['id'], role['name']
-
                 safe_folder_name = "".join(c for c in role_name if c.isalnum() or c in (' ', '-', '_')).strip()
-
                 if not safe_folder_name:
-
                     safe_folder_name = f"Role{role_id}"
 
-
-
                 role_images = images_by_role.get(role_id, [])
-
                 role_pass_count = 0
 
-
-
                 for img in role_images:
-
                     final_status = image_statuses.get(img['id'])
-
                     if final_status == 'pass':
-
                         img_path = img['path']
-
                         if os.path.exists(img_path):
-
                             arcname = os.path.join(safe_folder_name, os.path.basename(img_path))
-
                             zipf.write(img_path, arcname)
-
                             role_pass_count += 1
-
                             total_count += 1
-
-
 
                 log_message(f"Role {role_name}: {role_pass_count} approved")
 
-
-
         log_message(f"Export complete: {total_count} images")
 
-
-
         if total_count == 0:
-
             if os.path.exists(zip_path):
-
                 os.remove(zip_path)
-
             return JSONResponse(content={"message": "No approved images", "count": 0})
-
-
 
         return FileResponse(zip_path, filename=zip_filename, media_type='application/zip')
 
-
-
     except Exception as e:
-
         log_message(f"Export failed: {str(e)}")
-
         raise HTTPException(status_code=500, detail=str(e))
-
     finally:
-
         conn.close()
 
 
-
-
-
 @app.get("/api/admin/export-disputed")
-
 async def admin_export_disputed(x_admin_password: str = Header(None)):
-
-    """ÃÂ¥ÃÂ¯ÃÂ¼ÃÂ¥ÃÂÃÂºÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂºÃÂÃÂ¨ÃÂ®ÃÂ®ÃÂ§ÃÂÃÂÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¦ÃÂÃÂÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²ÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂ¤ÃÂ¹ÃÂ¯ÃÂ¼ÃÂ"""
-
+    """导出所有有争议的图片（按角色分文件夹）"""
     verify_admin(x_admin_password)
-
     
-
-    # ÃÂ¤ÃÂ½ÃÂ¿ÃÂ§ÃÂÃÂ¨ÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂ¡ÃÂ¥ÃÂÃÂ½ÃÂ¦ÃÂÃÂ°ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¤ÃÂºÃÂÃÂ¨ÃÂ®ÃÂ®ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂ
-
+    # 使用服务函数获取争议图片
     disputed_images = get_disputed_images()
-
     
-
     if not disputed_images:
-
-        return JSONResponse(content={"message": "ÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂ ÃÂ¥ÃÂÃÂ¯ÃÂ¥ÃÂ¯ÃÂ¼ÃÂ¥ÃÂÃÂºÃÂ¥ÃÂÃÂ¾ÃÂ¯ÃÂ¿ÃÂ½?, "count": 0})
-
+        return JSONResponse(content={"message": "暂无可导出图片", "count": 0})
     
-
-    # ÃÂ¥ÃÂÃÂÃÂ¥ÃÂ»ÃÂºÃÂ¥ÃÂ¯ÃÂ¼ÃÂ¥ÃÂÃÂºÃÂ§ÃÂÃÂ®ÃÂ¥ÃÂ½ÃÂ
-
+    # 创建导出目录
     export_dir = os.path.join(BASE_DIR, 'exports')
-
     os.makedirs(export_dir, exist_ok=True)
-
     
-
-    zip_filename = f"ÃÂ¤ÃÂºÃÂÃÂ¨ÃÂ®ÃÂ®ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂ_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-
+    zip_filename = f"争议图片_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
     zip_path = os.path.join(export_dir, zip_filename)
-
     
-
     try:
-
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-
             total_count = 0
-
             
-
-            # ÃÂ¦ÃÂÃÂÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²ÃÂ¥ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?
-
+            # 按角色分组
             role_images = {}
-
             for img in disputed_images:
-
-                role_name = img.get('role_name') or f"ÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²{img.get('role_id')}"
-
+                role_name = img.get('role_name') or f"角色{img.get('role_id')}"
                 if role_name not in role_images:
-
                     role_images[role_name] = []
-
                 role_images[role_name].append(img)
-
             
-
             for role_name, images in role_images.items():
-
-                # ÃÂ¦ÃÂ¸ÃÂÃÂ§ÃÂÃÂÃÂ¨ÃÂ§ÃÂÃÂ¨ÃÂÃÂ²ÃÂ¥ÃÂÃÂÃÂ§ÃÂ§ÃÂ°ÃÂ§ÃÂÃÂ¨ÃÂ¤ÃÂºÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂ¤ÃÂ¹ÃÂ¥ÃÂÃÂ
-
+                # 清理角色名称用于文件夹名
                 safe_folder_name = "".join(c for c in role_name if c.isalnum() or c in (' ', '-', '_')).strip()
-
                 if not safe_folder_name:
-
-                    safe_folder_name = "ÃÂ¦ÃÂÃÂªÃÂ¥ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?
-
+                    safe_folder_name = "未分类"
                 
-
                 for img in images:
-
                     img_path = img['path']
-
                     if os.path.exists(img_path):
-
                         arcname = os.path.join(safe_folder_name, os.path.basename(img_path))
-
                         zipf.write(img_path, arcname)
-
                         total_count += 1
-
             
-
-            log_message(f"ÃÂ¤ÃÂºÃÂÃÂ¨ÃÂ®ÃÂ®ÃÂ¥ÃÂÃÂ¾ÃÂ§ÃÂÃÂÃÂ¥ÃÂ¯ÃÂ¼ÃÂ¥ÃÂÃÂºÃÂ¥ÃÂ®ÃÂÃÂ¦ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂÃÂ± {total_count} ÃÂ¥ÃÂ¼ÃÂ ÃÂ¥ÃÂÃÂ¾ÃÂ¯ÃÂ¿ÃÂ½?)
-
+            log_message(f"争议图片导出完成，共 {total_count} 张图片")
         
-
         return FileResponse(zip_path, filename=zip_filename, media_type='application/zip')
-
         
-
     except Exception as e:
-
-        log_message(f"ÃÂ¥ÃÂ¯ÃÂ¼ÃÂ¥ÃÂÃÂºÃÂ¥ÃÂ¤ÃÂ±ÃÂ¨ÃÂ´ÃÂ¥: {str(e)}")
-
+        log_message(f"导出失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
 @app.get("/api/admin/settings")
-
 async def admin_get_settings(x_admin_password: str = Header(None)):
-
-    """ÃÂ¨ÃÂÃÂ·ÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¨ÃÂ®ÃÂ¾ÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """获取所有设置"""
     verify_admin(x_admin_password)
-
     return get_settings_all()
 
-
-
 @app.put("/api/admin/settings/title")
-
 async def admin_update_title(title: str = Form(...), x_admin_password: str = Header(None)):
-
-    """ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ©ÃÂ¡ÃÂµÃÂ©ÃÂÃÂ¢ÃÂ¦ÃÂ ÃÂÃÂ©ÃÂ¢ÃÂ"""
-
+    """更新页面标题"""
     verify_admin(x_admin_password)
-
     save_setting("title", title)
-
     return {"success": True}
-
-
 
 @app.put("/api/admin/settings/icon")
-
 async def admin_update_icon(icon: str = Form(...), x_admin_password: str = Header(None)):
-
-    """ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ©ÃÂ¡ÃÂµÃÂ©ÃÂÃÂ¢ÃÂ¥ÃÂÃÂ¾ÃÂ¦ÃÂ ÃÂ"""
-
+    """更新页面图标"""
     verify_admin(x_admin_password)
-
     save_setting("icon", icon)
-
     return {"success": True}
-
-
 
 @app.put("/api/admin/settings/review-rule")
-
 async def admin_update_review_rule(content: str = Form(...), x_admin_password: str = Header(None)):
-
-    """ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂ®ÃÂ¡ÃÂ¦ÃÂ ÃÂ¸ÃÂ¨ÃÂ§ÃÂÃÂ¥ÃÂÃÂ"""
-
+    """更新审核规则"""
     verify_admin(x_admin_password)
-
     save_setting("review_rule", content)
-
     return {"success": True}
-
-
 
 @app.put("/api/admin/settings/auto-backup-time")
-
 async def admin_update_auto_backup_time(backup_time: str = Form(...), x_admin_password: str = Header(None)):
-
-    """ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ¨ÃÂÃÂªÃÂ¥ÃÂÃÂ¨ÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½ÃÂ¦ÃÂÃÂ¶ÃÂ©ÃÂÃÂ´"""
-
+    """更新自动备份时间"""
     verify_admin(x_admin_password)
-
     save_setting("auto_backup_time", backup_time)
-
-    log_message(f"ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ¨ÃÂÃÂªÃÂ¥ÃÂÃÂ¨ÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½ÃÂ¦ÃÂÃÂ¶ÃÂ©ÃÂÃÂ´: {backup_time}")
-
+    log_message(f"更新自动备份时间: {backup_time}")
     return {"success": True}
-
-
 
 @app.put("/api/admin/settings/auto-backup-enabled")
-
 async def admin_update_auto_backup_enabled(enabled: str = Form(...), x_admin_password: str = Header(None)):
-
-    """ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ¨ÃÂÃÂªÃÂ¥ÃÂÃÂ¨ÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½ÃÂ¥ÃÂÃÂ¯ÃÂ§ÃÂÃÂ¨ÃÂ§ÃÂÃÂ¶ÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """更新自动备份启用状态"""
     verify_admin(x_admin_password)
-
     save_setting("auto_backup_enabled", enabled.lower())
-
-    log_message(f"ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ¨ÃÂÃÂªÃÂ¥ÃÂÃÂ¨ÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½ÃÂ¥ÃÂÃÂ¯ÃÂ§ÃÂÃÂ¨ÃÂ§ÃÂÃÂ¶ÃÂ¯ÃÂ¿ÃÂ½? {enabled}")
-
+    log_message(f"更新自动备份启用状态: {enabled}")
     return {"success": True}
-
-
 
 @app.put("/api/admin/settings/backup-retention-days")
-
 async def admin_update_backup_retention_days(days: str = Form(...), x_admin_password: str = Header(None)):
-
-    """ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½ÃÂ¤ÃÂ¿ÃÂÃÂ§ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ©ÃÂ¦ÃÂÃÂ°"""
-
+    """更新备份保留天数"""
     verify_admin(x_admin_password)
-
     save_setting("backup_retention_days", days)
-
-    log_message(f"ÃÂ¦ÃÂÃÂ´ÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½ÃÂ¤ÃÂ¿ÃÂÃÂ§ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ©ÃÂ¦ÃÂÃÂ°: {days}ÃÂ¯ÃÂ¿ÃÂ½?)
-
+    log_message(f"更新备份保留天数: {days}天")
     return {"success": True}
 
-
-
 @app.post("/api/admin/backup/now")
-
 async def admin_backup_now(x_admin_password: str = Header(None)):
-
-    """ÃÂ§ÃÂ«ÃÂÃÂ¥ÃÂÃÂ³ÃÂ¦ÃÂÃÂ§ÃÂ¨ÃÂ¡ÃÂÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½"""
-
+    """立即执行备份"""
     verify_admin(x_admin_password)
-
     from backend.backup import create_backup, cleanup_old_backups
-
     backup_path = create_backup()
-
     if backup_path:
-
         cleanup_old_backups(get_backup_retention_days())
-
-        log_message(f"ÃÂ§ÃÂ®ÃÂ¡ÃÂ§ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂ¨ÃÂ¨ÃÂ§ÃÂ¦ÃÂ¥ÃÂÃÂÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½ÃÂ¦ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?)
-
-        return {"success": True, "message": "ÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½ÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂ", "path": backup_path}
-
-    return {"success": False, "message": "ÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½ÃÂ¥ÃÂ¤ÃÂ±ÃÂ¨ÃÂ´ÃÂ¥"}
-
-
+        log_message(f"管理员手动触发备份成功")
+        return {"success": True, "message": "备份成功", "path": backup_path}
+    return {"success": False, "message": "备份失败"}
 
 @app.get("/api/admin/backup/list")
-
 async def admin_list_backups(x_admin_password: str = Header(None)):
-
-    """ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂºÃÂ¦ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¥ÃÂ¤ÃÂÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """列出所有备份"""
     verify_admin(x_admin_password)
-
     from backend.backup import list_backups
-
     return {"backups": list_backups()}
 
-
-
 @app.post("/api/admin/backup/restore/{filename}")
-
 async def admin_restore_backup(filename: str, x_admin_password: str = Header(None)):
-
-    """ÃÂ¨ÃÂ¿ÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¥ÃÂ®ÃÂÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½"""
-
+    """还原指定备份"""
     import re
-
     from backend.backup import restore_backup
-
     
-
-    # ÃÂ©ÃÂªÃÂÃÂ¨ÃÂ¯ÃÂÃÂ§ÃÂ®ÃÂ¡ÃÂ§ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?
-
+    # 验证管理员权限
     verify_admin(x_admin_password)
-
     
-
-    # ÃÂ§ÃÂÃÂ½ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ©ÃÂªÃÂÃÂ¨ÃÂ¯ÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂÃÂªÃÂ¥ÃÂÃÂÃÂ¨ÃÂ®ÃÂ¸ÃÂ¥ÃÂ­ÃÂÃÂ¦ÃÂ¯ÃÂÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂ­ÃÂÃÂ¤ÃÂ¸ÃÂÃÂ¥ÃÂÃÂÃÂ§ÃÂºÃÂ¿ÃÂ¥ÃÂÃÂÃÂ§ÃÂÃÂ­ÃÂ¦ÃÂ¨ÃÂªÃÂ§ÃÂºÃÂ¿
-
+    # 白名单验证：只允许字母数字下划线和短横线
     if not re.match(r'^[\w\-]+\.db$', filename):
-
-        raise HTTPException(status_code=400, detail="ÃÂ¦ÃÂÃÂ ÃÂ¦ÃÂÃÂÃÂ§ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂÃÂ")
-
+        raise HTTPException(status_code=400, detail="无效的文件名")
     
-
     if restore_backup(filename):
-
-        return {"success": True, "message": "ÃÂ¨ÃÂ¿ÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂ"}
-
-    raise HTTPException(status_code=400, detail="ÃÂ¨ÃÂ¿ÃÂÃÂ¥ÃÂÃÂÃÂ¥ÃÂ¤ÃÂ±ÃÂ¨ÃÂ´ÃÂ¥")
-
-
+        return {"success": True, "message": "还原成功"}
+    raise HTTPException(status_code=400, detail="还原失败")
 
 @app.delete("/api/admin/backup/{filename}")
-
 async def admin_delete_backup(filename: str, x_admin_password: str = Header(None)):
-
-    """ÃÂ¥ÃÂÃÂ ÃÂ©ÃÂÃÂ¤ÃÂ¦ÃÂÃÂÃÂ¥ÃÂ®ÃÂÃÂ¥ÃÂ¤ÃÂÃÂ¤ÃÂ»ÃÂ½"""
-
+    """删除指定备份"""
     import re
-
     from backend.backup import delete_backup
-
     
-
-    # ÃÂ©ÃÂªÃÂÃÂ¨ÃÂ¯ÃÂÃÂ§ÃÂ®ÃÂ¡ÃÂ§ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?
-
+    # 验证管理员权限
     verify_admin(x_admin_password)
-
     
-
-    # ÃÂ§ÃÂÃÂ½ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ©ÃÂªÃÂÃÂ¨ÃÂ¯ÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂÃÂªÃÂ¥ÃÂÃÂÃÂ¨ÃÂ®ÃÂ¸ÃÂ¥ÃÂ­ÃÂÃÂ¦ÃÂ¯ÃÂÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂ­ÃÂÃÂ¤ÃÂ¸ÃÂÃÂ¥ÃÂÃÂÃÂ§ÃÂºÃÂ¿ÃÂ¥ÃÂÃÂÃÂ§ÃÂÃÂ­ÃÂ¦ÃÂ¨ÃÂªÃÂ§ÃÂºÃÂ¿
-
+    # 白名单验证：只允许字母数字下划线和短横线
     if not re.match(r'^[\w\-]+\.db$', filename):
-
-        raise HTTPException(status_code=400, detail="ÃÂ¦ÃÂÃÂ ÃÂ¦ÃÂÃÂÃÂ§ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂÃÂ")
-
+        raise HTTPException(status_code=400, detail="无效的文件名")
     
-
     if delete_backup(filename):
-
         return {"success": True}
+    raise HTTPException(status_code=400, detail="删除失败")
 
-    raise HTTPException(status_code=400, detail="ÃÂ¥ÃÂÃÂ ÃÂ©ÃÂÃÂ¤ÃÂ¥ÃÂ¤ÃÂ±ÃÂ¨ÃÂ´ÃÂ¥")
-
-
-
-# ============ ÃÂ©ÃÂ¡ÃÂµÃÂ©ÃÂÃÂ¢ÃÂ¨ÃÂ·ÃÂ¯ÃÂ§ÃÂÃÂ± ============
-
-
+# ============ 页面路由 ============
 
 @app.get("/")
-
 async def index():
-
-    """ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂ°ÃÂ©ÃÂ¦ÃÂÃÂ©ÃÂ¡ÃÂµ"""
-
+    """前台首页"""
     return FileResponse(os.path.join(FRONTEND_DIR, 'index.html'))
 
-
-
 @app.get("/admin")
-
 async def admin_page():
-
-    """ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂ°ÃÂ§ÃÂ®ÃÂ¡ÃÂ§ÃÂÃÂÃÂ¯ÃÂ¿ÃÂ½?""
-
+    """后台管理页"""
     return FileResponse(os.path.join(FRONTEND_DIR, 'admin.html'))
 
-
-
 @app.get("/uploads/{filename}")
-
 async def serve_upload(filename: str):
-
-    """ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ¾ÃÂÃÂ¤ÃÂ¸ÃÂÃÂ¤ÃÂ¼ÃÂ ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶"""
-
+    """提供上传文件"""
     import re
-
-    # ÃÂ§ÃÂÃÂ½ÃÂ¥ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ©ÃÂªÃÂÃÂ¨ÃÂ¯ÃÂÃÂ¯ÃÂ¼ÃÂÃÂ¥ÃÂÃÂªÃÂ¥ÃÂÃÂÃÂ¨ÃÂ®ÃÂ¸ÃÂ¥ÃÂ­ÃÂÃÂ¦ÃÂ¯ÃÂÃÂ¦ÃÂÃÂ°ÃÂ¥ÃÂ­ÃÂÃÂ£ÃÂÃÂÃÂ§ÃÂÃÂ¹ÃÂ¥ÃÂÃÂÃÂ§ÃÂÃÂ­ÃÂ¦ÃÂ¨ÃÂªÃÂ§ÃÂºÃÂ¿
-
+    # 白名单验证：只允许字母数字、点和短横线
     if not re.match(r'^[\w\.-]+$', filename):
-
-        raise HTTPException(status_code=400, detail="ÃÂ¦ÃÂÃÂ ÃÂ¦ÃÂÃÂÃÂ§ÃÂÃÂÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¥ÃÂÃÂ")
-
+        raise HTTPException(status_code=400, detail="无效的文件名")
     
-
     safe_path = os.path.join(UPLOADS_DIR, filename)
-
-    # ÃÂ©ÃÂªÃÂÃÂ¨ÃÂ¯ÃÂÃÂ¨ÃÂ·ÃÂ¯ÃÂ¥ÃÂ¾ÃÂÃÂ§ÃÂ¡ÃÂ®ÃÂ¥ÃÂ®ÃÂÃÂ¥ÃÂÃÂ¨UPLOADS_DIRÃÂ¯ÃÂ¿ÃÂ½?
-
+    # 验证路径确实在UPLOADS_DIR内
     if not os.path.realpath(safe_path).startswith(os.path.realpath(UPLOADS_DIR)):
-
-        raise HTTPException(status_code=403, detail="ÃÂ§ÃÂ¦ÃÂÃÂ¦ÃÂ­ÃÂ¢ÃÂ¨ÃÂ®ÃÂ¿ÃÂ©ÃÂÃÂ®")
-
+        raise HTTPException(status_code=403, detail="禁止访问")
     
-
     if not os.path.exists(safe_path):
-
-        raise HTTPException(status_code=404, detail="ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂ¶ÃÂ¤ÃÂ¸ÃÂÃÂ¥ÃÂ­ÃÂÃÂ¯ÃÂ¿ÃÂ½?)
-
+        raise HTTPException(status_code=404, detail="文件不存在")
     
-
     return FileResponse(safe_path)
 
-
-
 if __name__ == "__main__":
-
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
