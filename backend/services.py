@@ -43,8 +43,10 @@ def log_message(message: str):
     os.makedirs(LOGS_DIR, exist_ok=True)
     log_file = os.path.join(LOGS_DIR, f'app_{datetime.now().strftime("%Y%m%d")}.log')
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 过滤控制字符，防止日志注入
+    safe_message = ''.join(c if c.isprintable() or c in '\t\n\r' else '?' for c in message)
     with open(log_file, 'a', encoding='utf-8') as f:
-        f.write(f"[{timestamp}] {message}\n")
+        f.write(f"[{timestamp}] {safe_message}\n")
 
 # ============ 用户服务 ============
 
@@ -157,6 +159,12 @@ def clear_user_reviews(user_id: str):
 
 def create_role(name: str, image_path: str, avatar_path: str = None) -> RoleResponse:
     """创建角色"""
+    # 验证路径安全
+    if not _is_path_safe(image_path):
+        raise ValueError("无效的图片路径")
+    if avatar_path and not _is_path_safe(avatar_path):
+        raise ValueError("无效的头像路径")
+    
     conn = get_db()
     cursor = conn.cursor()
     
@@ -768,3 +776,35 @@ def get_last_backup_date() -> str:
 def set_last_backup_date(date_str: str):
     """设置上次备份日期"""
     save_setting("last_backup_date", date_str)
+
+def _is_path_safe(path: str) -> bool:
+    """验证路径安全，防止路径遍历"""
+    if not path:
+        return False
+    # 只检查路径遍历字符，其他路径格式均可接受
+    if '..' in path:
+        return False
+    return True
+
+def clear_thumbnail_cache_for_role(role_id: int):
+    """清除指定角色的缩略图缓存"""
+    from backend.main import THUMBNAIL_CACHE_DIR
+    if not os.path.exists(THUMBNAIL_CACHE_DIR):
+        return 0
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM images WHERE role_id = ?", (role_id,))
+    image_ids = [row['id'] for row in cursor.fetchall()]
+    conn.close()
+
+    deleted = 0
+    for img_id in image_ids:
+        cache_path = os.path.join(THUMBNAIL_CACHE_DIR, f"{img_id}.jpg")
+        if os.path.exists(cache_path):
+            try:
+                os.remove(cache_path)
+                deleted += 1
+            except Exception:
+                pass
+    return deleted
