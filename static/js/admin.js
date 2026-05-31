@@ -73,10 +73,15 @@ async function verifyPassword() {
 }
 
 async function verifyToken() {
-    // 检查是否过期
+    // 优先检查本地过期时间（快速失败）
     const expireTime = sessionStorage.getItem('admin_expire');
     if (expireTime && Date.now() > parseInt(expireTime)) {
         logout();
+        return;
+    }
+    
+    // 如果没有本地token或已过期，都跳转到登录
+    if (!adminToken) {
         return;
     }
     
@@ -89,6 +94,8 @@ async function verifyToken() {
         const data = await response.json();
         
         if (data.valid) {
+            // 验证成功，顺延过期时间
+            sessionStorage.setItem('admin_expire', Date.now() + 3600000);
             showAdminPage();
         } else {
             logout();
@@ -593,11 +600,7 @@ async function toggleBan(userId, ban) {
 // ========== 审核状况 ==========
 async function loadStats() {
     try {
-        const response = await fetch('/api/admin/stats', {
-            headers: {
-                'X-Admin-Password': adminToken
-            }
-        });
+        const response = await adminFetch('/api/admin/stats');
         const data = await response.json();
         
         // 总体统计

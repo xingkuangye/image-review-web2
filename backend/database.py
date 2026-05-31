@@ -76,4 +76,14 @@ def init_db():
     ''')
     
     conn.commit()
+
+    # 创建索引以优化查询性能
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_images_role_id ON images(role_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_reviews_image_id ON reviews(image_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON reviews(user_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_reviews_reviewed_at ON reviews(reviewed_at)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_last_active ON users(last_active)')
+
+    conn.commit()
     conn.close()

@@ -487,27 +487,19 @@ async function loadImage() {
 
                         const fullUrl2 = URL.createObjectURL(fullBlob);
                         
-                        // 渐变切换到原图
-                        image.style.transition = 'opacity 0.3s ease';
-                        image.style.opacity = '0';
-
-                        setTimeout(() => {
-                            // 再次检查
-                            if (currentImageId !== thisImageId) {
-                                return;
-                            }
-                            
-                            // 清理旧的 blob URL
-                            if (image._fullUrl) {
-                                URL.revokeObjectURL(image._fullUrl);
-                            }
-                            
-                            image.src = fullUrl2;
-                            image._fullUrl = fullUrl2;
-                            image.style.transition = 'opacity 0.3s ease';
-                            image.style.opacity = '1';
-                            updateImageShadow(image);
-                        }, 300);
+                        // 直接替换图片，无需动画
+                        if (currentImageId !== thisImageId) {
+                            return;
+                        }
+                        
+                        // 清理旧的 blob URL
+                        if (image._fullUrl) {
+                            URL.revokeObjectURL(image._fullUrl);
+                        }
+                        
+                        image.src = fullUrl2;
+                        image._fullUrl = fullUrl2;
+                        updateImageShadow(image);
                     }
                 } catch (e) {
                     if (e.name === 'AbortError') {
@@ -678,24 +670,17 @@ async function prevImage() {
 
                     const fullUrl2 = URL.createObjectURL(fullBlob);
                     
-                    image.style.transition = 'opacity 0.3s ease';
-                    image.style.opacity = '0';
-
-                    setTimeout(() => {
-                        if (currentImageId !== thisImageId) {
-                            return;
-                        }
-                        
-                        if (image._fullUrl) {
-                            URL.revokeObjectURL(image._fullUrl);
-                        }
-                        
-                        image.src = fullUrl2;
-                        image._fullUrl = fullUrl2;
-                        image.style.transition = 'opacity 0.3s ease';
-                        image.style.opacity = '1';
-                        updateImageShadow(image);
-                    }, 300);
+                    if (currentImageId !== thisImageId) {
+                        return;
+                    }
+                    
+                    if (image._fullUrl) {
+                        URL.revokeObjectURL(image._fullUrl);
+                    }
+                    
+                    image.src = fullUrl2;
+                    image._fullUrl = fullUrl2;
+                    updateImageShadow(image);
                 }
             } catch (e) {
                 if (e.name !== 'AbortError') {
@@ -1014,31 +999,36 @@ let touchStartY = 0;
 let touchEndX = 0;
 let touchEndY = 0;
 let isSwiping = false;
+let touchHandled = false;  // 防止重复触发
 
 document.addEventListener('touchstart', function(e) {
     touchStartX = e.changedTouches[0].screenX;
     touchStartY = e.changedTouches[0].screenY;
+    touchEndX = touchStartX;
+    touchEndY = touchStartY;
     isSwiping = true;
+    touchHandled = false;
 }, { passive: true });
 
 document.addEventListener('touchmove', function(e) {
-    if (!isSwiping) return;
+    if (!isSwiping || touchHandled) return;
     touchEndX = e.changedTouches[0].screenX;
     touchEndY = e.changedTouches[0].screenY;
 }, { passive: true });
 
 document.addEventListener('touchend', function(e) {
-    if (!isSwiping) return;
+    if (!isSwiping || touchHandled) return;
     
-    touchEndX = e.changedTouches[0].screenX;
-    touchEndY = e.changedTouches[0].screenY;
+    touchHandled = true;
+    isSwiping = false;
     
     const deltaX = touchEndX - touchStartX;
     const deltaY = touchEndY - touchStartY;
     const minSwipeDistance = 80;
+    const maxVerticalRatio = 0.5;  // 垂直偏移不超过水平偏移的50%
     
     // 判断是否为主要水平滑动（排除垂直滑动）
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
+    if (Math.abs(deltaX) > Math.abs(deltaY) * (1 + maxVerticalRatio) && Math.abs(deltaX) > minSwipeDistance) {
         if (deltaX > 0) {
             // 向右滑动：上一张
             prevImage();
@@ -1047,8 +1037,12 @@ document.addEventListener('touchend', function(e) {
             skipImage();
         }
     }
-    
+}, { passive: true });
+
+document.addEventListener('touchcancel', function(e) {
+    // 触摸被取消时重置状态
     isSwiping = false;
+    touchHandled = false;
 }, { passive: true });
 
 // ========== 键盘快捷键 ==========

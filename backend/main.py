@@ -57,19 +57,16 @@ def release_download_slot(user_id: str):
     """释放下载槽位"""
     try:
         loop = asyncio.get_running_loop()
-        loop.call_soon(lambda: asyncio.ensure_future(_process_next_in_queue(user_id)))
+        loop.call_soon(lambda: asyncio.ensure_future(_release_and_next(user_id)))
     except RuntimeError:
         pass
 
-async def _process_next_in_queue(user_id: str):
-    """处理用户下载队列中的下一个任务"""
+async def _release_and_next(user_id: str):
+    """释放当前用户的槽位"""
     async with queue_lock:
-        if user_id not in user_active_downloads:
-            return
-        if user_active_downloads.get(user_id, 0) >= MAX_CONCURRENT_DOWNLOADS_PER_USER:
-            return
-        # 分配槽位
-        user_active_downloads[user_id] = user_active_downloads.get(user_id, 0) + 1
+        current = user_active_downloads.get(user_id, 0)
+        if current > 0:
+            user_active_downloads[user_id] = current - 1
 
 # 初始化 - 支持直接运行和模块运行
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -78,6 +75,8 @@ UPLOADS_DIR = os.path.join(BASE_DIR, 'uploads')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+THUMBNAIL_CACHE_DIR = os.path.join(BASE_DIR, 'data', 'thumbnails')
+os.makedirs(THUMBNAIL_CACHE_DIR, exist_ok=True)
 
 app = FastAPI(title="图片审核系统")
 
@@ -380,6 +379,20 @@ def _compress_image(img, max_size=500*1024, initial_quality=85, quality_step=10,
 @app.get("/api/image/{image_id}/thumbnail")
 async def get_thumbnail(image_id: int):
     """获取压缩缩略图，确保文件小于500KB"""
+    # 检查缓存
+    cache_key = f"{image_id}.jpg"
+    cache_path = os.path.join(THUMBNAIL_CACHE_DIR, cache_key)
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, 'rb') as f:
+                cached_data = f.read()
+            return StreamingResponse(
+                io.BytesIO(cached_data),
+                media_type="image/jpeg"
+            )
+        except Exception:
+            pass  # 缓存读取失败，继续生成
+
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT path FROM images WHERE id = ?", (image_id,))
@@ -405,8 +418,16 @@ async def get_thumbnail(image_id: int):
                 new_height = int(height * ratio)
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-            # 压缩到500KB以内，直接返回字节数据
+            # 压缩到500KB以内
             compressed_data = _compress_image(img)
+
+            # 保存到缓存
+            try:
+                with open(cache_path, 'wb') as f:
+                    f.write(compressed_data)
+            except Exception:
+                pass  # 缓存写入失败不影响返回
+
             return StreamingResponse(
                 io.BytesIO(compressed_data),
                 media_type="image/jpeg"
