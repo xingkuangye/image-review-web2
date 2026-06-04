@@ -922,6 +922,8 @@ function parseMarkdown(text) {
         .replace(/`(.+?)`/g, '<code>$1</code>')
         // 引用
         .replace(/&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+        // 图片
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;">')
         // 列表
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
