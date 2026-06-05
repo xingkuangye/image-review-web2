@@ -922,8 +922,13 @@ function parseMarkdown(text) {
         .replace(/`(.+?)`/g, '<code>$1</code>')
         // 引用
         .replace(/&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
-        // 图片
-        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;">')
+        // 图片（支持 ![alt](url =WxH) 语法）
+        .replace(/!\[([^\]]*)\]\(([^)=]+)(?:=(\d+)x(\d+))?\)/g, function(match, alt, url, width, height) {
+            var style = 'max-width:100%;';
+            if (width) style += 'width:' + width + 'px;';
+            if (height) style += 'height:' + height + 'px;';
+            return '<img src="' + url + '" alt="' + alt + '" style="' + style + '">';
+        })
         // 列表
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
