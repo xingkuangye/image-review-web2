@@ -347,9 +347,13 @@ function updateUserUI() {
 // ========== 加载统计数据 ==========
 async function loadStats() {
     try {
-        const response = await fetch('/api/stats');
-        if (!response.ok) throw new Error('API请求失败');
-        const stats = await response.json();
+        const [statsRes, userRes] = await Promise.all([
+            fetch('/api/stats'),
+            currentUser ? fetch(`/api/user-stats?user_id=${currentUser.id}`) : Promise.resolve(null)
+        ]);
+        if (!statsRes.ok) throw new Error('API请求失败');
+        const stats = await statsRes.json();
+        const userStats = userRes ? await userRes.json() : null;
         
         const progressPercent = document.getElementById('progressPercent');
         const progressFill = document.getElementById('progressFill');
@@ -369,9 +373,9 @@ async function loadStats() {
         if (completeCount) completeCount.textContent = stats.completed_images || 0;
         if (totalImages) totalImages.textContent = stats.total_images || 0;
         
-        // 更新用户审核数
-        if (currentUser) {
-            currentUser.total_reviews = stats.reviewed_images || 0;
+        // 更新用户审核数（当前用户自己的审核数）
+        if (currentUser && userStats) {
+            currentUser.total_reviews = userStats.total_reviews || 0;
             if (userReviewCount) userReviewCount.textContent = currentUser.total_reviews;
         }
     } catch (e) {
