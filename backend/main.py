@@ -443,6 +443,24 @@ async def get_stats():
     """获取统计数据"""
     return get_overall_stats()
 
+@app.get("/api/user-stats")
+async def get_user_stats(user_id: str = Query(None)):
+    """获取当前用户审核数"""
+    if not user_id:
+        return {"total_reviews": 0, "completed_reviews": 0}
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT COUNT(CASE WHEN status != 'skip' THEN 1 END) as total_reviews FROM reviews WHERE user_id = ?",
+        (user_id,)
+    )
+    result = cursor.fetchone()
+    conn.close()
+    return {
+        "total_reviews": result['total_reviews'] if result else 0,
+        "completed_reviews": result['total_reviews'] if result else 0
+    }
+
 @app.get("/api/roles")
 async def get_roles():
     """获取所有角色"""
