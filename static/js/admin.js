@@ -608,9 +608,11 @@ async function loadStats() {
         document.getElementById('totalProgress').style.width = stats.progress_percent + '%';
         document.getElementById('totalProgressText').textContent = stats.progress_percent.toFixed(1) + '%';
         document.getElementById('totalImages').textContent = stats.total_images;
-        document.getElementById('totalReviewed').textContent = stats.reviewed_images;
-        document.getElementById('totalPass').textContent = stats.pass_count;
-        document.getElementById('totalFail').textContent = stats.fail_count;
+        document.getElementById('totalVotes').textContent = stats.total_votes || 0;
+        document.getElementById('totalCompleted').textContent = stats.completed_images;
+        document.getElementById('totalPass').textContent = stats.pass_count || 0;
+        document.getElementById('totalDisputed').textContent = stats.disputed_count || 0;
+        document.getElementById('totalFail').textContent = stats.fail_count || 0;
         
         // 角色统计
         const roleStatsList = document.getElementById('roleStatsList');
