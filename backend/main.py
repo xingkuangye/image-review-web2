@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional, Dict
 from collections import deque
 
-from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form, Response
+from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form, Response, Query
 from fastapi.responses import StreamingResponse
 from PIL import Image
 import io
