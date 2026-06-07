@@ -483,11 +483,13 @@ def get_overall_stats() -> StatsResponse:
     cursor.execute('''
         SELECT 
             COUNT(DISTINCT CASE WHEN vote_count > 0 THEN image_id END) as reviewed_images,
+            SUM(vote_count) as total_reviews,
             SUM(pass_count) as pass_count,
             SUM(fail_count) as fail_count,
             SUM(skip_count) as skip_count,
-            SUM(vote_count) as total_reviews,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? THEN image_id END) as completed_images
+            COUNT(DISTINCT CASE WHEN vote_count >= ? THEN image_id END) as completed_images,
+            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? THEN image_id END) as completed_pass,
+            COUNT(DISTINCT CASE WHEN vote_count >= ? AND fail_count >= ? THEN image_id END) as completed_fail
         FROM (
             SELECT 
                 image_id,
@@ -498,13 +500,16 @@ def get_overall_stats() -> StatsResponse:
             FROM reviews
             GROUP BY image_id
         )
-    ''', (REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
+    ''', (REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
     
     stats = cursor.fetchone()
     conn.close()
     
     total_reviews = stats['total_reviews'] or 0
     completed_images = stats['completed_images'] or 0
+    completed_pass = stats['completed_pass'] or 0
+    completed_fail = stats['completed_fail'] or 0
+    completed_disputed = completed_images - completed_pass - completed_fail
     progress_percent = (total_reviews / (total_images * REQUIRED_VOTES) * 100) if total_images > 0 else 0
     
     return StatsResponse(
@@ -515,7 +520,9 @@ def get_overall_stats() -> StatsResponse:
         fail_count=stats['fail_count'] or 0,
         skip_count=stats['skip_count'] or 0,
         progress_percent=round(progress_percent, 2),
-        completed_images=completed_images
+        completed_images=completed_images,
+        disputed_count=max(0, completed_disputed),
+        total_votes=total_reviews
     )
 
 def get_role_stats(role_id: int) -> Optional[StatsResponse]:
@@ -530,11 +537,13 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
     cursor.execute("""
         SELECT 
             COUNT(DISTINCT image_id) as reviewed_images,
+            SUM(vote_count) as total_reviews,
             SUM(pass_count) as pass_count,
             SUM(fail_count) as fail_count,
             SUM(skip_count) as skip_count,
-            SUM(vote_count) as total_reviews,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? THEN image_id END) as completed_images
+            COUNT(DISTINCT CASE WHEN vote_count >= ? THEN image_id END) as completed_images,
+            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? THEN image_id END) as completed_pass,
+            COUNT(DISTINCT CASE WHEN vote_count >= ? AND fail_count >= ? THEN image_id END) as completed_fail
         FROM (
             SELECT 
                 r.image_id,
@@ -547,7 +556,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
             WHERE i.role_id = ?
             GROUP BY r.image_id
         )
-    """, (REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, role_id))
+    """, (REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, role_id))
     
     stats = cursor.fetchone()
     conn.close()
@@ -557,6 +566,9 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
     
     total_reviews = stats["total_reviews"] or 0
     completed_images = stats["completed_images"] or 0
+    completed_pass = stats["completed_pass"] or 0
+    completed_fail = stats["completed_fail"] or 0
+    completed_disputed = completed_images - completed_pass - completed_fail
     progress_percent = (total_reviews / (total_images * REQUIRED_VOTES) * 100) if total_images > 0 else 0
     
     return StatsResponse(
@@ -567,7 +579,9 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
         fail_count=stats["fail_count"] or 0,
         skip_count=stats["skip_count"] or 0,
         progress_percent=round(progress_percent, 2),
-        completed_images=completed_images
+        completed_images=completed_images,
+        disputed_count=max(0, completed_disputed),
+        total_votes=total_reviews
     )
 
 def get_image_final_status(image_id: int) -> Optional[str]:
