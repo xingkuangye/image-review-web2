@@ -365,7 +365,7 @@ async function loadStats() {
         
         if (progressPercent) progressPercent.textContent = (stats.progress_percent || 0).toFixed(1);
         if (progressFill) progressFill.style.width = (stats.progress_percent || 0) + '%';
-        if (reviewedCount) reviewedCount.textContent = stats.reviewed_images || 0;
+        if (reviewedCount) reviewedCount.textContent = stats.total_reviews || 0;
         // 投票进度条显示总票数 = 图片数 × 每张图片需要的票数
         if (totalCount) totalCount.textContent = (stats.total_images || 0) * appConfig.required_votes;
         
