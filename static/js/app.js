@@ -447,7 +447,7 @@ async function loadImage() {
         }
 
         currentImage = data.image;
-        preloadNextId = data.next_image_id || null;
+        preloadNextId = (data.next_image_id !== data.image?.id && data.next_image_id) || null;
         updateRoleBadge();
         const thisImageId = currentImage.id;  // 保存本次加载的图片ID
         currentImageId = thisImageId;  // 更新全局当前图片ID
@@ -467,6 +467,8 @@ async function loadImage() {
                 image.style.display = 'block';
                 image.style.opacity = '1';
                 image.classList.add('loaded');
+                image.classList.add('enter');
+                setTimeout(function() { image.classList.remove('enter'); }, 300);
                 
                 // 后台加载原图
                 fullImageAbortController = new AbortController();
@@ -506,6 +508,8 @@ async function loadImage() {
                 image.style.display = 'block';
                 image.style.opacity = '1';
                 image.classList.add('loaded');
+                image.classList.add('enter');
+                setTimeout(function() { image.classList.remove('enter'); }, 300);
                 
                 // 清理旧的 blob URL
                 if (image._thumbUrl) {
@@ -593,14 +597,44 @@ async function loadRoleProgress() {
 
 
 // ========== 按钮视觉反馈 ==========
+// ========== 指针位置跟踪（用于涟漪） ==========
+document.addEventListener('pointerdown', function(e) {
+    window._lastPointerX = e.clientX;
+    window._lastPointerY = e.clientY;
+});
+
+// ========== 按钮视觉反馈（涟漪） ==========
 function flashButton(btnId) {
     var btn = document.getElementById(btnId);
+    if (!btn) {
+        var map = { passBtn: '.nav-pass', failBtn: '.nav-fail', prevBtn: '.nav-prev', downloadBtn: '.nav-download' };
+        btn = document.querySelector('.mobile-bottom-nav ' + (map[btnId] || ''));
+    }
     if (!btn) return;
-    btn.classList.remove('btn-flash');
-    // Force reflow to re-trigger animation
-    void btn.offsetWidth;
-    btn.classList.add('btn-flash');
-    setTimeout(function() { btn.classList.remove('btn-flash'); }, 400);
+    createRipple(btn);
+}
+
+function createRipple(btn) {
+    var old = document.querySelector('.ripple');
+    if (old) old.remove();
+    var rect = btn.getBoundingClientRect();
+    var size = Math.max(rect.width, rect.height) * 1.5;
+    var cx = window._lastPointerX !== undefined ? window._lastPointerX : rect.left + rect.width / 2;
+    var cy = window._lastPointerY !== undefined ? window._lastPointerY : rect.top + rect.height / 2;
+    var span = document.createElement('span');
+    span.className = 'ripple';
+    span.style.width = span.style.height = size + 'px';
+    span.style.left = (cx - size / 2) + 'px';
+    span.style.top = (cy - size / 2) + 'px';
+    if (btn.classList.contains('btn-pass') || btn.classList.contains('nav-pass')) {
+        span.style.background = 'rgba(74, 222, 128, 0.2)';
+    } else if (btn.classList.contains('btn-fail') || btn.classList.contains('nav-fail')) {
+        span.style.background = 'rgba(248, 113, 113, 0.2)';
+    } else if (btn.classList.contains('btn-download') || btn.classList.contains('nav-download')) {
+        span.style.background = 'rgba(91, 141, 239, 0.2)';
+    }
+    document.body.appendChild(span);
+    setTimeout(function() { span.remove(); }, 500);
 }
 
 
@@ -626,9 +660,28 @@ function preloadNextThumbnail() {
 }
 
 // ========== 提交审核 ==========
+// 全局审核锁定：骨架屏显示时拒绝审核
+var reviewLocked = false;
+
 async function submitReview(status) {
     if (!currentImage || !currentUser) return;
+    if (reviewLocked) return;
+    reviewLocked = true;
     flashButton(status === 'pass' ? 'passBtn' : status === 'fail' ? 'failBtn' : '');
+    
+    // 立即显示骨架屏（在 await 之前，确保不被阻塞）
+    var image = document.getElementById('reviewImage');
+    var skeleton = document.getElementById('imageSkeleton');
+    var loading = document.getElementById('loadingIndicator');
+    var noImage = document.getElementById('noImageHint');
+    if (skeleton) skeleton.style.display = 'flex';
+    if (loading) loading.style.display = 'none';
+    if (noImage) noImage.style.display = 'none';
+    if (image) {
+        image.style.display = 'none';
+        image.classList.remove('loaded');
+        image.classList.remove('enter');
+    }
     
     try {
         await fetch(`/api/image/${currentImage.id}/review`, {
@@ -642,11 +695,78 @@ async function submitReview(status) {
         // 保存到历史
         historyStack.push(currentImage);
         
-        // 重新加载
+        // 重新加载统计
         await loadStats();
+        
+        // 使用预加载的下一张图片，不再调 /api/image/review
+        if (preloadBlobUrl && preloadNextId && preloadNextId !== currentImage?.id) {
+            var nextId = preloadNextId;
+            var blobUrl = preloadBlobUrl;
+            preloadNextId = null;
+            preloadBlobUrl = null;
+            
+            // 直接将预加载的图片设为当前图片
+            currentImage = { id: nextId, role_name: '加载中...' };
+            currentImageId = nextId;
+            updateRoleBadge();
+            
+            // 解锁审核
+            reviewLocked = false;
+            // 骨架屏已在顶端显示，此处隐藏并显示缓存缩略图
+            if (skeleton) skeleton.style.display = 'none';
+            if (image) {
+                image.src = blobUrl;
+                image.style.display = 'block';
+                image.style.opacity = '1';
+                image.classList.add('loaded');
+                image.classList.add('enter');
+                setTimeout(function() { image.classList.remove('enter'); }, 300);
+                if (image._thumbUrl) URL.revokeObjectURL(image._thumbUrl);
+                image._thumbUrl = blobUrl;
+                
+                // 后台加载原图
+                var fullSig = new AbortController();
+                fullImageAbortController = fullSig;
+                fetch('/api/image/' + nextId + '/download?t=' + Date.now(), { signal: fullSig.signal })
+                    .then(function(r) { return r.blob(); })
+                    .then(function(blob) {
+                        if (currentImageId !== nextId) return;
+                        var fUrl = URL.createObjectURL(blob);
+                        if (image._fullUrl) URL.revokeObjectURL(image._fullUrl);
+                        image.src = fUrl;
+                        image._fullUrl = fUrl;
+                        updateImageShadow(image);
+                    }).catch(function(e) { if (e.name !== 'AbortError') console.error('原图加载失败:', e); });
+            }
+            
+            // 后台获取下一张的 next_image_id（确定性排序）并预加载
+            var uid = currentUser.id;
+            var roleParam = currentRoleId ? '&role_id=' + currentRoleId : '';
+            var nextUrl = '/api/image/next-id?user_id=' + uid + '&current_id=' + nextId + roleParam;
+            fetch(nextUrl).then(function(r) { return r.json(); }).then(function(d) {
+                // 更新当前图片角色名
+                if (d.role_name && currentImage && currentImage.id === nextId) {
+                    currentImage.role_name = d.role_name;
+                    updateRoleBadge();
+                }
+                if (d.next_image_id) {
+                    preloadNextId = d.next_image_id;
+                    fetch('/api/image/' + d.next_image_id + '/thumbnail?t=' + Date.now())
+                        .then(function(r) { return r.blob(); })
+                        .then(function(blob) { preloadBlobUrl = URL.createObjectURL(blob); })
+                        .catch(function() {});
+                }
+            }).catch(function() {});
+            
+            return;
+        }
+        
+        // fallback: 没有预加载缓存时正常调 API
         await loadImage();
+        reviewLocked = false;
         
     } catch (e) {
+        reviewLocked = false;
         console.error('提交审核失败:', e);
         alert('提交失败，请重试');
     }
@@ -731,6 +851,8 @@ async function prevImage() {
             image.style.display = 'block';
             image.style.opacity = '1';
             image.classList.add('loaded');
+            image.classList.add('enter');
+            setTimeout(function() { image.classList.remove('enter'); }, 300);
             
             if (image._thumbUrl) {
                 URL.revokeObjectURL(image._thumbUrl);
@@ -781,6 +903,8 @@ async function prevImage() {
 }// ========== 跳过（无法定夺） ==========
 async function skipImage() {
     if (!currentImage || !currentUser) return;
+    if (reviewLocked) return;
+    reviewLocked = true;
     flashButton('skipBtn');
     
     try {
@@ -802,16 +926,85 @@ async function skipImage() {
     } catch (e) {
         console.error('跳过失败:', e);
     }
+    reviewLocked = false;
 }
 
 // ========== 下载图片 ==========
 function downloadImage() {
     if (!currentImage) return;
+    flashButton('downloadBtn');
     
-    const link = document.createElement('a');
-    link.href = '/api/image/' + currentImage.id + '/download';
-    link.download = currentImage.path.split(/[/\\]/).pop();
-    link.click();
+    var btn = document.getElementById('downloadBtn');
+    var progress = document.getElementById('dlProgress');
+    var text = document.getElementById('dlText');
+    var fileName = currentImage.path.split(/[/\\]/).pop();
+    var url = '/api/image/' + currentImage.id + '/download';
+    
+    // Mobile: 浏览器原生下载，由浏览器跟踪进度
+    if (window.innerWidth <= 768 || !btn.offsetParent) {
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        return;
+    }
+    
+    // Desktop: 自定义进度条
+    btn.disabled = true;
+    text.textContent = '0%';
+    progress.style.width = '0%';
+    
+    fetch(url)
+        .then(function(resp) {
+            if (!resp.ok) throw new Error('下载失败');
+            var total = parseInt(resp.headers.get('content-length')) || 0;
+            var loaded = 0;
+            var reader = resp.body.getReader();
+            var chunks = [];
+            
+            function readChunk() {
+                return reader.read().then(function(result) {
+                    if (result.done) {
+                        var blob = new Blob(chunks);
+                        var url2 = URL.createObjectURL(blob);
+                        var link = document.createElement('a');
+                        link.href = url2;
+                        link.download = fileName;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        setTimeout(function() { URL.revokeObjectURL(url2); }, 1000);
+                        
+                        btn.disabled = false;
+                        text.textContent = '下载';
+                        progress.style.width = '0%';
+                        return;
+                    }
+                    
+                    chunks.push(result.value);
+                    loaded += result.value.length;
+                    if (total > 0) {
+                        var pct = Math.round(loaded / total * 100);
+                        text.textContent = pct + '%';
+                        progress.style.width = pct + '%';
+                    } else {
+                        text.textContent = Math.round(loaded / 1024) + 'KB';
+                        progress.style.width = Math.min(95, loaded / 10240) + '%';
+                    }
+                    
+                    return readChunk();
+                });
+            }
+            
+            return readChunk();
+        })
+        .catch(function(e) {
+            console.error('下载失败:', e);
+            btn.disabled = false;
+            text.textContent = '重试';
+            progress.style.width = '0%';
+            setTimeout(function() { text.textContent = '下载'; }, 2000);
+        });
 }
 
 // ========== 图片加载错误 ==========

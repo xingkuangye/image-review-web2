@@ -486,6 +486,26 @@ async def get_review_rule_api():
     """获取审核规则"""
     return {"content": get_setting("review_rule") or ""}
 
+@app.get("/api/image/next-id")
+async def get_next_id(user_id: str, current_id: int, role_id: Optional[int] = None):
+    """获取下一张待审核图片ID（确定性排序，用于预加载）"""
+    from backend.database import get_db
+    next_id = get_next_image_id(user_id, role_id, current_id)
+    role_name = None
+    if next_id:
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute("SELECT r.name FROM images i JOIN roles r ON i.role_id = r.id WHERE i.id = ?", (next_id,))
+            row = cursor.fetchone()
+            if row:
+                role_name = row[0]
+            conn.close()
+        except Exception:
+            pass
+    return {"next_image_id": next_id, "role_name": role_name}
+
+
 @app.get("/api/settings/notice")
 async def get_notice():
     """获取公告内容"""
