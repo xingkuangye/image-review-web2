@@ -751,7 +751,9 @@ def get_settings() -> dict:
         "review_rule": get_setting("review_rule") or "",
         "auto_backup_time": get_setting("auto_backup_time") or "03:00",
         "auto_backup_enabled": get_setting("auto_backup_enabled") or "true",
-        "backup_retention_days": get_setting("backup_retention_days") or "7"
+        "backup_retention_days": get_setting("backup_retention_days") or "7",
+        "notice": get_setting("notice") or "",
+        "notice_version": get_setting("notice_version") or "0"
     }
 
 def get_settings_all() -> dict:

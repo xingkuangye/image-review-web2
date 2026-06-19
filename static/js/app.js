@@ -301,6 +301,7 @@ window.addEventListener('DOMContentLoaded', async function() {
         imageShadowManager.enableTransition();
         
         await loadSettings();  // 先加载配置
+        await checkNotice();
         await initUser();
         await loadStats();
         await loadImage();
@@ -762,6 +763,59 @@ function updateRoleBadge() {
     } else {
         badge.style.display = 'none';
     }
+}
+
+
+// ========== 公告 ==========
+async function checkNotice() {
+    try {
+        const response = await fetch('/api/settings/notice');
+        const data = await response.json();
+        if (!data.content) {
+            document.getElementById('noticeBtn').style.display = 'none';
+            return;
+        }
+        document.getElementById('noticeBtn').style.display = '';
+        
+        // Check if first visit or version changed
+        var seenVersion = localStorage.getItem('review_notice_version');
+        if (seenVersion !== data.version) {
+            showNoticeModal();
+            localStorage.setItem('review_notice_version', data.version);
+        }
+    } catch (e) {
+        console.error('加载公告失败:', e);
+    }
+}
+
+async function showNoticeModal() {
+    const modal = document.getElementById('noticeModal');
+    const content = document.getElementById('noticeContent');
+    if (!modal) return;
+    
+    // Close other panels first
+    closeRulePanel();
+    closeRolePanel();
+    
+    if (content) content.innerHTML = '<p style="color:var(--text-muted);">加载中...</p>';
+    
+    try {
+        const response = await fetch('/api/settings/notice');
+        const data = await response.json();
+        if (content) {
+            content.innerHTML = data.content ? parseMarkdown(data.content) : '<p style="color:var(--text-muted);">暂无公告</p>';
+        }
+    } catch (e) {
+        if (content) content.innerHTML = '<p style="color:var(--text-muted);">加载失败</p>';
+    }
+    
+    modal.classList.add('open');
+}
+
+function closeNoticeModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('noticeModal');
+    if (modal) modal.classList.remove('open');
 }
 
 // ========== 修改昵称 ==========

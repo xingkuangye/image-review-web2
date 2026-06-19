@@ -184,6 +184,7 @@ async function loadSettings() {
         document.getElementById('settingTitle').value = data.title || '';
         document.getElementById('settingIcon').value = data.icon || '';
         document.getElementById('settingReviewRule').value = data.review_rule || '';
+        document.getElementById('settingNotice').value = data.notice || '';
     } catch (e) {
         console.error('加载设置失败:', e);
     }
@@ -193,6 +194,7 @@ async function saveSettings() {
     const title = document.getElementById('settingTitle').value.trim();
     const icon = document.getElementById('settingIcon').value.trim();
     const reviewRule = document.getElementById('settingReviewRule').value.trim();
+    const notice = document.getElementById('settingNotice').value.trim();
     const msgEl = document.getElementById('settingsMsg');
     
     try {
@@ -212,6 +214,15 @@ async function saveSettings() {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
             body: 'icon=' + encodeURIComponent(icon)
+        });
+        
+        // 保存公告
+        await adminFetch('/api/admin/settings/notice', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'content=' + encodeURIComponent(notice)
         });
         
         // 保存审核规则

@@ -483,6 +483,11 @@ async def get_review_rule_api():
     """获取审核规则"""
     return {"content": get_setting("review_rule") or ""}
 
+@app.get("/api/settings/notice")
+async def get_notice():
+    """获取公告内容"""
+    return {"content": get_setting("notice") or "", "version": get_setting("notice_version") or "0"}
+
 @app.get("/api/settings/title")
 async def get_title():
     """获取页面标题"""
@@ -879,6 +884,15 @@ async def admin_update_icon(icon: str = Form(...), x_admin_password: str = Heade
     """更新页面图标"""
     verify_admin(x_admin_password)
     save_setting("icon", icon)
+    return {"success": True}
+
+@app.put("/api/admin/settings/notice")
+async def admin_update_notice(content: str = Form(...), x_admin_password: str = Header(None)):
+    """更新公告"""
+    verify_admin(x_admin_password)
+    import time
+    save_setting("notice", content)
+    save_setting("notice_version", str(int(time.time())))
     return {"success": True}
 
 @app.put("/api/admin/settings/review-rule")

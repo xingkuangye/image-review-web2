@@ -59,6 +59,7 @@
                 <span id="themeIcon"></span>
             </button>
             <button id="ruleBtn" class="btn btn-rule" onclick="showRuleModal()">审核要求</button>
+            <button id="noticeBtn" class="btn btn-rule btn-notice" onclick="showNoticeModal()" title="公告" style="display:none;">公告</button>
             <button id="roleSelectBtnMobile" class="btn btn-rule btn-role-select-inline" onclick="showRoleModal()">角色</button>
             <span id="roleProgress" class="role-progress" style="display:none;">
                 角色进度: <span id="roleProgressPercent">0</span>%
@@ -188,6 +189,21 @@
 
 
     </main>
+    <!-- Notice Popover -->
+    <div id="noticeModal" class="popover-overlay" onclick="closeNoticeModal(event)">
+        <div class="popover-card popover-notice" onclick="event.stopPropagation()">
+            <div class="popover-header">
+                <span>📢 网站公告</span>
+                <button class="popover-close" onclick="closeNoticeModal()">&times;</button>
+            </div>
+            <div class="popover-body">
+                <div id="noticeContent" class="rule-content">
+                    <p style="color:var(--text-muted);">加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Rule Sidebar -->
     <aside id="rulePanel" class="rule-panel">
         <div class="rule-panel-header">
