@@ -76,6 +76,7 @@ STATIC_DIR = os.path.join(BASE_DIR, 'static')
 FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 THUMBNAIL_CACHE_DIR = os.path.join(BASE_DIR, 'data', 'thumbnails')
+SERVER_START_TIME = time.time()
 os.makedirs(THUMBNAIL_CACHE_DIR, exist_ok=True)
 
 app = FastAPI(title="图片审核系统")
@@ -633,6 +634,54 @@ async def admin_get_users(sort_by: str = "id", x_admin_password: str = Header(No
     verify_admin(x_admin_password)
     return get_all_users(sort_by)
 
+@app.get("/api/admin/users/daily-stats")
+async def admin_users_daily_stats(x_admin_password: str = Header(None)):
+    """获取用户每日活跃/新增统计（近30天）"""
+    verify_admin(x_admin_password)
+    from datetime import datetime, timedelta
+    from backend.database import get_db
+
+    conn = get_db()
+    cursor = conn.cursor()
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    dates = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(29, -1, -1)]
+
+    active_counts = {}
+    new_counts = {}
+
+    for d in dates:
+        active_counts[d] = 0
+        new_counts[d] = 0
+
+    # Count daily active users (by last_active)
+    cursor.execute("SELECT last_active FROM users")
+    for row in cursor.fetchall():
+        try:
+            day = row[0][:10]  # "2026-06-19T..." -> "2026-06-19"
+            if day in active_counts:
+                active_counts[day] += 1
+        except Exception:
+            pass
+
+    # Count new users daily (by created_at)
+    cursor.execute("SELECT created_at FROM users")
+    for row in cursor.fetchall():
+        try:
+            day = row[0][:10]
+            if day in new_counts:
+                new_counts[day] += 1
+        except Exception:
+            pass
+
+    conn.close()
+
+    return {
+        "dates": dates,
+        "active": [active_counts[d] for d in dates],
+        "new_users": [new_counts[d] for d in dates],
+    }
+
+
 @app.get("/api/admin/users/{user_id}/reviews")
 async def admin_get_user_reviews(user_id: str, x_admin_password: str = Header(None)):
     """获取用户审核记录"""
@@ -875,6 +924,144 @@ async def admin_backup_now(x_admin_password: str = Header(None)):
         return {"success": True, "message": "备份成功", "path": backup_path}
     return {"success": False, "message": "备份失败"}
 
+
+@app.get("/api/admin/health")
+async def admin_health(x_admin_password: str = Header(None)):
+    """系统健康检查"""
+    verify_admin(x_admin_password)
+
+    import shutil
+    import time
+    import socket
+    import platform
+    import sys
+
+    # ---- 数据库检查 ----
+    db_ok = True
+    db_size = 0
+    db_latency = 0
+    image_count = 0
+    review_count = 0
+    user_count = 0
+    role_count = 0
+    try:
+        t0 = time.time()
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM images")
+        image_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM reviews")
+        review_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM users")
+        user_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM roles")
+        role_count = cursor.fetchone()[0]
+        cursor.execute("SELECT sqlite_version()")
+        sqlite_ver = cursor.fetchone()[0]
+        conn.close()
+        db_latency = round((time.time() - t0) * 1000, 1)
+        db_path = os.path.join(BASE_DIR, 'data', 'review.db')
+        if os.path.exists(db_path):
+            db_size = os.path.getsize(db_path)
+    except Exception as e:
+        db_ok = False
+        log_message(f"健康检查: 数据库异常 {str(e)}")
+        sqlite_ver = "-"
+
+    # ---- 磁盘检查 ----
+    try:
+        disk = shutil.disk_usage(BASE_DIR)
+    except Exception:
+        disk = None
+
+    # ---- 目录检查 ----
+    dirs = {
+        "data": os.path.join(BASE_DIR, "data"),
+        "uploads": UPLOADS_DIR,
+        "thumbnails": THUMBNAIL_CACHE_DIR,
+        "backups": os.path.join(BASE_DIR, "backups"),
+    }
+    dir_status = {}
+    for name, d in dirs.items():
+        exists = os.path.exists(d)
+        dir_status[name] = {
+            "exists": exists,
+            "writable": os.access(d, os.W_OK) if exists else False,
+            "path": d,
+        }
+
+    # ---- 图片文件完整性检查 ----
+    missing_images = 0
+    total_images = 0
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM images")
+        total_images = cursor.fetchone()[0]
+        # Sample check first 20 images
+        cursor.execute("SELECT path FROM images LIMIT 20")
+        for row in cursor.fetchall():
+            if not os.path.exists(row[0]):
+                missing_images += 1
+        conn.close()
+    except Exception:
+        pass
+
+    # ---- 网络检查 ----
+    network = {"hostname": socket.gethostname(), "connectivity": True}
+    # 尝试解析常见域名检查 DNS/网络
+    try:
+        socket.getaddrinfo("8.8.8.8", 53, socket.AF_INET, socket.SOCK_STREAM)
+        network["dns"] = True
+    except Exception:
+        network["dns"] = False
+
+    # ---- 系统信息 ----
+    uptime_seconds = time.time() - SERVER_START_TIME
+
+    return {
+        "status": "ok" if db_ok else "error",
+        "server": {
+            "hostname": network["hostname"],
+            "platform": platform.platform(),
+            "python_version": sys.version.split()[0],
+            "uptime": uptime_seconds,
+            "uptime_formatted": format_uptime(uptime_seconds),
+        },
+        "database": {
+            "ok": db_ok,
+            "latency_ms": db_latency,
+            "version": sqlite_ver,
+            "size": db_size,
+            "size_formatted": format_size(db_size),
+            "tables": {
+                "images": image_count,
+                "reviews": review_count,
+                "users": user_count,
+                "roles": role_count,
+            }
+        },
+        "storage": {
+            "total": disk.total if disk else 0,
+            "used": disk.used if disk else 0,
+            "free": disk.free if disk else 0,
+            "total_formatted": format_size(disk.total) if disk else "-",
+            "used_formatted": format_size(disk.used) if disk else "-",
+            "free_formatted": format_size(disk.free) if disk else "-",
+            "usage_percent": round(disk.used / disk.total * 100, 1) if disk else 0,
+        },
+        "images": {
+            "total": total_images,
+            "missing_sample": missing_images,
+        },
+        "directories": dir_status,
+        "network": network,
+    }
+
+
+
+
+
 @app.get("/api/admin/backup/list")
 async def admin_list_backups(x_admin_password: str = Header(None)):
     """列出所有备份"""
@@ -945,6 +1132,31 @@ async def serve_upload(filename: str):
         raise HTTPException(status_code=404, detail="文件不存在")
     
     return FileResponse(safe_path)
+
+# ============ 辅助函数 ============
+
+def format_size(size: int) -> str:
+    """格式化文件大小"""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size < 1024:
+            return f"{size:.1f}{unit}"
+        size /= 1024
+    return f"{size:.1f}TB"
+
+
+def format_uptime(seconds: float) -> str:
+    """格式化运行时间"""
+    days = int(seconds // 86400)
+    hours = int((seconds % 86400) // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    parts = []
+    if days > 0: parts.append(f"{days}天")
+    if hours > 0: parts.append(f"{hours}小时")
+    if minutes > 0: parts.append(f"{minutes}分")
+    parts.append(f"{secs}秒")
+    return "".join(parts)
+
 
 if __name__ == "__main__":
     import uvicorn

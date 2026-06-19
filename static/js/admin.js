@@ -1,10 +1,11 @@
 // ========== 全局状态 ==========
+let adminToken = null;
 // 使用sessionStorage存储，页面关闭后自动清除，比localStorage更安全
 
 // ========== 认证辅助函数 ==========
 function ensureAdminToken() {
-    // 每次都从sessionStorage读取最新token
-    const token = sessionStorage.getItem('admin_session');
+    // 从sessionStorage或localStorage读取token
+    const token = sessionStorage.getItem('admin_session') || localStorage.getItem('admin_session');
     if (!token) {
         console.error('Admin token is missing.');
         throw new Error('Admin authentication required.');
@@ -38,6 +39,8 @@ async function adminFetch(url, options = {}) {
 
 // ========== 初始化 ==========
 document.addEventListener('DOMContentLoaded', () => {
+    // 尝试从存储恢复token
+    adminToken = sessionStorage.getItem('admin_session') || localStorage.getItem('admin_session');
     if (adminToken) {
         verifyToken();
     }
@@ -58,10 +61,16 @@ async function verifyPassword() {
         
         if (data.valid) {
             adminToken = password;
-            // 使用sessionStorage存储，浏览器/标签页关闭后自动清除
-            sessionStorage.setItem('admin_session', password);
-            // 设置1小时过期
-            sessionStorage.setItem('admin_expire', Date.now() + 3600000);
+            var remember = document.getElementById('rememberMe') && document.getElementById('rememberMe').checked;
+            if (remember) {
+                // 持久化登录：localStorage + 7天
+                localStorage.setItem('admin_session', password);
+                localStorage.setItem('admin_expire', Date.now() + 604800000);
+            } else {
+                // 会话登录：sessionStorage + 1小时
+                sessionStorage.setItem('admin_session', password);
+                sessionStorage.setItem('admin_expire', Date.now() + 3600000);
+            }
             showAdminPage();
         } else {
             document.getElementById('loginError').style.display = 'block';
@@ -74,13 +83,13 @@ async function verifyPassword() {
 
 async function verifyToken() {
     // 优先检查本地过期时间（快速失败）
-    const expireTime = sessionStorage.getItem('admin_expire');
+    var expireTime = sessionStorage.getItem('admin_expire') || localStorage.getItem('admin_expire');
     if (expireTime && Date.now() > parseInt(expireTime)) {
         logout();
         return;
     }
     
-    // 如果没有本地token或已过期，都跳转到登录
+    // 如果没有本地token，跳转到登录
     if (!adminToken) {
         return;
     }
@@ -95,7 +104,9 @@ async function verifyToken() {
         
         if (data.valid) {
             // 验证成功，顺延过期时间
-            sessionStorage.setItem('admin_expire', Date.now() + 3600000);
+            var ext = sessionStorage.getItem('admin_session') ? 3600000 : 604800000;
+            var store = sessionStorage.getItem('admin_session') ? sessionStorage : localStorage;
+            store.setItem('admin_expire', Date.now() + ext);
             showAdminPage();
         } else {
             logout();
@@ -109,6 +120,8 @@ function logout() {
     adminToken = null;
     sessionStorage.removeItem('admin_session');
     sessionStorage.removeItem('admin_expire');
+    localStorage.removeItem('admin_session');
+    localStorage.removeItem('admin_expire');
     document.getElementById('loginPage').style.display = 'block';
     document.getElementById('adminPage').style.display = 'none';
 }
@@ -152,6 +165,9 @@ function switchTab(tabName) {
         case 'backup':
             loadBackupSettings();
             loadBackups();
+            break;
+        case 'health':
+            loadHealth();
             break;
         case 'settings':
             loadSettings();
@@ -458,8 +474,108 @@ async function deleteRole(roleId) {
     }
 }
 
+// ========== 用户图表 ==========
+let usersChartInstance = null;
+
+async function loadUsersChart() {
+    if (typeof Chart === 'undefined') return;
+    try {
+        const response = await adminFetch('/api/admin/users/daily-stats');
+        const data = await response.json();
+        
+        const ctx = document.getElementById('usersChart');
+        if (!ctx) return;
+        
+        if (usersChartInstance) usersChartInstance.destroy();
+        
+        // Format dates for display (MM/DD)
+        const labels = data.dates.map(function(d) {
+            var parts = d.split('-');
+            return parts[1] + '/' + parts[2];
+        });
+        
+        // Only show every 5th label on x-axis
+        const displayLabels = labels.map(function(l, i) {
+            return i % 5 === 0 ? l : '';
+        });
+        
+        usersChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: displayLabels,
+                datasets: [{
+                    label: '活跃用户',
+                    data: data.active,
+                    borderColor: '#5b8def',
+                    backgroundColor: 'rgba(91, 141, 239, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                }, {
+                    label: '新用户',
+                    data: data.new_users,
+                    borderColor: '#4ade80',
+                    backgroundColor: 'rgba(74, 222, 128, 0.08)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || 'rgba(240,242,248,0.65)',
+                            font: { size: 11 },
+                            boxWidth: 12,
+                            padding: 16,
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(18,22,38,0.9)',
+                        titleFont: { size: 12 },
+                        bodyFont: { size: 11 },
+                        padding: 10,
+                        cornerRadius: 8,
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || 'rgba(240,242,248,0.4)',
+                            font: { size: 10 },
+                            maxRotation: 0,
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || 'rgba(240,242,248,0.4)',
+                            font: { size: 10 },
+                            stepSize: 1,
+                            precision: 0,
+                        }
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('加载用户图表失败:', e);
+    }
+}
+
 // ========== 用户管理 ==========
 async function loadUsers() {
+    loadUsersChart();
     const sortBy = document.getElementById('userSort').value;
     
     try {
@@ -759,6 +875,127 @@ function formatTime(isoString) {
     }
     
     return '刚刚';
+}
+
+// ========== 系统健康检查 ==========
+async function loadHealth() {
+    const container = document.getElementById('healthContent');
+    container.innerHTML = '<div class="health-loading">检查中...</div>';
+    
+    try {
+        const response = await adminFetch('/api/admin/health');
+        const data = await response.json();
+        renderHealth(container, data);
+    } catch (e) {
+        console.error('健康检查失败:', e);
+        container.innerHTML = '<div class="health-error">无法连接到服务器</div>';
+    }
+}
+
+function renderHealth(container, data) {
+    // Badge helpers
+    function badge(ok, okText, errText) {
+        return ok
+            ? '<span class="health-badge health-ok">' + (okText || '正常') + '</span>'
+            : '<span class="health-badge health-err">' + (errText || '异常') + '</span>';
+    }
+    function latBadge(ms) {
+        if (ms < 5) return '<span class="health-badge health-ok">' + ms + 'ms</span>';
+        if (ms < 20) return '<span class="health-badge health-warn">' + ms + 'ms</span>';
+        return '<span class="health-badge health-err">' + ms + 'ms</span>';
+    }
+
+    const dbStatus = data.database.ok
+        ? '<span class="health-badge health-ok">正常</span>'
+        : '<span class="health-badge health-err">异常</span>';
+
+    const usage = data.storage.usage_percent;
+    let usageColor = 'health-ok';
+    if (usage > 85) usageColor = 'health-err';
+    else if (usage > 65) usageColor = 'health-warn';
+
+    const dirLabels = {data:'数据', uploads:'上传', thumbnails:'缩略图', backups:'备份'};
+
+    container.innerHTML = [
+        '<div class="health-grid">',
+            // 服务器
+            '<div class="health-card health-card-wide">',
+                '<div class="health-card-title">服务器</div>',
+                '<div class="health-card-body">',
+                    '<div class="health-row"><span class="health-label">主机名</span><span>' + escapeHtml(data.server.hostname) + '</span></div>',
+                    '<div class="health-row"><span class="health-label">系统</span><span>' + escapeHtml(data.server.platform) + '</span></div>',
+                    '<div class="health-row"><span class="health-label">Python</span><span>' + escapeHtml(data.server.python_version) + '</span></div>',
+                    '<div class="health-row"><span class="health-label">运行时间</span><span>' + escapeHtml(data.server.uptime_formatted) + '</span></div>',
+                '</div>',
+            '</div>',
+
+            // 数据库
+            '<div class="health-card">',
+                '<div class="health-card-title">数据库 <span class="health-subtitle">SQLite ' + escapeHtml(data.database.version || '') + '</span></div>',
+                '<div class="health-card-body">',
+                    '<div class="health-row"><span class="health-label">状态</span><span>' + dbStatus + '</span></div>',
+                    '<div class="health-row"><span class="health-label">延迟</span><span>' + latBadge(data.database.latency_ms) + '</span></div>',
+                    '<div class="health-row"><span class="health-label">大小</span><span>' + data.database.size_formatted + '</span></div>',
+                '</div>',
+                '<div class="health-card-sub">',
+                    '<div class="health-stat"><span class="health-num">' + data.database.tables.images + '</span> 图片</div>',
+                    '<div class="health-stat"><span class="health-num">' + data.database.tables.reviews + '</span> 审核</div>',
+                    '<div class="health-stat"><span class="health-num">' + data.database.tables.users + '</span> 用户</div>',
+                    '<div class="health-stat"><span class="health-num">' + data.database.tables.roles + '</span> 角色</div>',
+                '</div>',
+            '</div>',
+
+            // 存储
+            '<div class="health-card">',
+                '<div class="health-card-title">存储</div>',
+                '<div class="health-card-body">',
+                    '<div class="health-row"><span class="health-label">已用</span><span>' + data.storage.used_formatted + ' / ' + data.storage.total_formatted + '</span></div>',
+                    '<div class="health-row"><span class="health-label">剩余</span><span>' + data.storage.free_formatted + '</span></div>',
+                    '<div class="health-progress-section">',
+                        '<div class="health-progress-bar"><div class="health-progress-fill ' + usageColor + '" style="width:' + usage + '%"></div></div>',
+                        '<span class="health-progress-text">' + usage + '%</span>',
+                    '</div>',
+                '</div>',
+            '</div>',
+
+            // 网络
+            '<div class="health-card">',
+                '<div class="health-card-title">网络</div>',
+                '<div class="health-card-body">',
+                    '<div class="health-row"><span class="health-label">DNS 解析</span><span>' + badge(data.network.dns, '正常', '异常') + '</span></div>',
+                    '<div class="health-row"><span class="health-label">外网连通</span><span>' + badge(data.network.connectivity, '正常', '异常') + '</span></div>',
+                '</div>',
+            '</div>',
+
+            // 图片完整性
+            '<div class="health-card">',
+                '<div class="health-card-title">图片完整性</div>',
+                '<div class="health-card-body">',
+                    '<div class="health-row"><span class="health-label">图片总数</span><span>' + data.images.total + '</span></div>',
+                    '<div class="health-row"><span class="health-label">缺失样本</span><span>' + (data.images.missing_sample > 0
+                        ? '<span class="health-badge health-err">' + data.images.missing_sample + ' 张</span>'
+                        : '<span class="health-badge health-ok">无</span>') + '</span></div>',
+                '</div>',
+            '</div>',
+
+            // 目录
+            '<div class="health-card health-card-wide">',
+                '<div class="health-card-title">目录状态</div>',
+                '<div class="health-dir-grid">' +
+                    Object.entries(data.directories).map(function(kv) {
+                        var name = kv[0], dir = kv[1];
+                        var ok = dir.exists && dir.writable;
+                        var st = ok ? '<span class="health-badge health-ok">正常</span>'
+                                    : '<span class="health-badge health-err">异常</span>';
+                        return '<div class="health-dir-item">' +
+                            '<div class="health-row"><span class="health-label">' + (dirLabels[name] || name) + '</span><span>' + st + '</span></div>' +
+                            '<div class="health-dir-path">' + escapeHtml(dir.path) + '</div>' +
+                        '</div>';
+                    }).join('')
+                + '</div>',
+            '</div>',
+        '</div>'
+    ].join('\n');
 }
 
 // ========== 点击模态框外部关闭 ==========

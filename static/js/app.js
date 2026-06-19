@@ -373,6 +373,12 @@ async function loadStats() {
         if (completeCount) completeCount.textContent = stats.completed_images || 0;
         if (totalImages) totalImages.textContent = stats.total_images || 0;
         
+        // Update top progress bar
+        const topFill = document.getElementById('topProgressFill');
+        if (topFill) {
+            topFill.style.width = (stats.progress_percent || 0) + '%';
+        }
+        
         // 更新用户审核数（当前用户自己的审核数）
         if (currentUser && userStats) {
             currentUser.total_reviews = userStats.total_reviews || 0;
@@ -431,10 +437,12 @@ async function loadImage() {
             if (noImage) noImage.style.display = 'block';
             currentImage = null;
             currentImageId = null;
+            updateRoleBadge();
             return;
         }
 
         currentImage = data.image;
+        updateRoleBadge();
         const thisImageId = currentImage.id;  // 保存本次加载的图片ID
         currentImageId = thisImageId;  // 更新全局当前图片ID
 
@@ -609,7 +617,7 @@ async function prevImage() {
 
     currentImage = historyStack.pop();
     currentImageId = currentImage.id;  // 更新当前图片ID
-
+    updateRoleBadge();
     const image = document.getElementById('reviewImage');
     const loading = document.getElementById('loadingIndicator');
     const noImage = document.getElementById('noImageHint');
@@ -744,14 +752,28 @@ window.imageLoadError = function() {
     if (skeleton) skeleton.style.display = 'none';
 }
 
+// ========== 更新当前图片角色徽标 ==========
+function updateRoleBadge() {
+    const badge = document.getElementById('roleBadge');
+    if (!badge) return;
+    if (currentImage && currentImage.role_name) {
+        badge.textContent = currentImage.role_name;
+        badge.style.display = '';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
 // ========== 修改昵称 ==========
 function editNickname() {
     if (!currentUser) return;
     const input = document.getElementById('nicknameInput');
     const modal = document.getElementById('nicknameModal');
+    const display = document.getElementById('currentNickDisplay');
     if (input) input.value = currentUser.nickname || '';
-    if (modal) modal.style.display = 'block';
-    if (input) input.focus();
+    if (display) display.textContent = currentUser.nickname || '匿名用户';
+    if (modal) modal.classList.add('open');
+    if (input) setTimeout(function() { input.focus(); input.select(); }, 100);
 }
 
 async function saveNickname() {
@@ -775,15 +797,26 @@ async function saveNickname() {
     }
 }
 
-function closeNicknameModal() {
+function closeNicknameModal(event) {
+    if (event && event.target !== event.currentTarget) return;
     const modal = document.getElementById('nicknameModal');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.remove('open');
 }
 
 // ========== 角色选择 ==========
+function updatePanelOverlay() {
+    var overlay = document.getElementById('panelOverlay');
+    if (!overlay) return;
+    var anyOpen = document.querySelector('.role-panel.open, .rule-panel.open');
+    overlay.classList.toggle('visible', !!anyOpen);
+}
+
 async function showRoleModal() {
-    const modal = document.getElementById('roleModal');
+    closeRulePanel(); // close the other panel first
+    const panel = document.getElementById('rolePanel');
     const roleList = document.getElementById('roleList');
+    
+    if (!panel) return;
     
     try {
         const response = await fetch('/api/roles');
@@ -792,7 +825,7 @@ async function showRoleModal() {
         if (roleList) roleList.innerHTML = '';
         
         if (!roles || roles.length === 0) {
-            if (roleList) roleList.innerHTML = '<p style="color:#888;text-align:center;">暂无角色配置</p>';
+            if (roleList) roleList.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px;">暂无角色配置</p>';
         } else {
             roles.forEach(role => {
                 const item = document.createElement('div');
@@ -810,11 +843,11 @@ async function showRoleModal() {
                 `;
                 
                 if (roleList) roleList.appendChild(item);
-
             });
         }
         
-        if (modal) modal.style.display = 'block';
+        panel.classList.add('open');
+        updatePanelOverlay();
     } catch (e) {
         console.error('加载角色列表失败:', e);
     }
@@ -822,7 +855,7 @@ async function showRoleModal() {
 
 async function selectRole(roleId) {
     currentRoleId = roleId;
-    closeRoleModal();
+    closeRolePanel();
     
     // 清除历史
     historyStack = [];
@@ -833,8 +866,13 @@ async function selectRole(roleId) {
 }
 
 function closeRoleModal() {
-    const modal = document.getElementById('roleModal');
-    if (modal) modal.style.display = 'none';
+    closeRolePanel();
+}
+
+function closeRolePanel() {
+    const panel = document.getElementById('rolePanel');
+    if (panel) panel.classList.remove('open');
+    updatePanelOverlay();
 }
 
 // ========== 图片详情 ==========
@@ -853,33 +891,34 @@ function showImageDetail() {
     if (detailFailCount) detailFailCount.textContent = currentImage.fail_count || 0;
     if (detailSkipCount) detailSkipCount.textContent = currentImage.skip_count || 0;
     
+    if (!myStatus) return;
     if (currentImage.is_reviewed_by_user) {
         const statusMap = { pass: '已通过', fail: '未通过', skip: '已跳过' };
-        if (myStatus) {
-            myStatus.textContent = '我的审核: ' + (statusMap[currentImage.is_reviewed_by_user] || '');
-            myStatus.className = 'my-status ' + currentImage.is_reviewed_by_user;
-        }
+        myStatus.textContent = statusMap[currentImage.is_reviewed_by_user] || '';
+        myStatus.className = 'detail-status ' + currentImage.is_reviewed_by_user;
     } else {
-        if (myStatus) {
-            myStatus.textContent = '尚未审核';
-            myStatus.className = 'my-status';
-        }
+        myStatus.textContent = '尚未审核';
+        myStatus.className = 'detail-status';
     }
     
-    if (modal) modal.style.display = 'block';
+    if (modal) modal.classList.add('open');
 }
 
-function closeImageDetailModal() {
+function closeImageDetailModal(event) {
+    if (event && event.target !== event.currentTarget) return;
     const modal = document.getElementById('imageDetailModal');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.remove('open');
 }
 
 // ========== 审核要求 ==========
 async function showRuleModal() {
-    const modal = document.getElementById('ruleModal');
+    closeRolePanel(); // close the other panel first
+    const panel = document.getElementById('rulePanel');
     const content = document.getElementById('ruleContent');
     
-    if (content) content.innerHTML = '<p style="color:#888;">加载中...</p>';
+    if (!panel) return;
+    
+    if (content) content.innerHTML = '<p style="color:var(--text-muted);">加载中...</p>';
     
     try {
         const response = await fetch('/api/settings/review-rule');
@@ -889,15 +928,21 @@ async function showRuleModal() {
             content.innerHTML = parseMarkdown(data.content || '暂无审核要求');
         }
     } catch (e) {
-        if (content) content.innerHTML = '<p style="color:#888;">暂无审核要求</p>';
+        if (content) content.innerHTML = '<p style="color:var(--text-muted);">暂无审核要求</p>';
     }
     
-    if (modal) modal.style.display = 'block';
+    panel.classList.add('open');
+    updatePanelOverlay();
 }
 
 function closeRuleModal() {
-    const modal = document.getElementById('ruleModal');
-    if (modal) modal.style.display = 'none';
+    closeRulePanel();
+}
+
+function closeRulePanel() {
+    const panel = document.getElementById('rulePanel');
+    if (panel) panel.classList.remove('open');
+    updatePanelOverlay();
 }
 
 // 简单的Markdown解析（带XSS防护）
@@ -993,13 +1038,29 @@ if (reviewImage) {
 }
 
 // ========== 点击模态框外部关闭 ==========
+document.addEventListener('click', function(event) {
+    ['rulePanel', 'rolePanel'].forEach(function(pid) {
+        var panel = document.getElementById(pid);
+        if (panel && panel.classList.contains('open')) {
+            var rect = panel.getBoundingClientRect();
+            var isMobile = window.innerWidth <= 768;
+            // Desktop: click outside (left of panel)
+            // Mobile: click on the dark overlay (the image area behind the panel)
+            if ((!isMobile && event.clientX < rect.left) ||
+                (isMobile && event.clientY < rect.top)) {
+                if (pid === 'rulePanel') closeRulePanel();
+                else closeRolePanel();
+            }
+        }
+    });
+});
 window.onclick = function(event) {
-    const modalIds = ['roleModal', 'nicknameModal', 'imageDetailModal', 'ruleModal'];
+    const modalIds = ['roleModal'];
     
     modalIds.forEach(id => {
         const modal = document.getElementById(id);
         if (modal && event.target === modal) {
-            modal.style.display = 'none';
+            modal.classList.remove('open');
         }
     });
 };
