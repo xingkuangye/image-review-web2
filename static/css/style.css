@@ -368,56 +368,21 @@ body {
 .btn-download {
     position: absolute;
     bottom: 36px;
-    left: 0;
-    right: 0;
-    margin: 0 auto;
-    width: fit-content;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 50;
     padding: 10px 24px;
     font-size: 13px;
-    font-weight: 600;
     border-radius: 100px;
-    background: linear-gradient(135deg, rgba(91, 141, 239, 0.15), rgba(91, 141, 239, 0.05));
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
     color: var(--accent-blue);
     border: 1px solid rgba(91, 141, 239, 0.2);
-    letter-spacing: 0.5px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    overflow: hidden;
-    justify-content: center;
 }
 .btn-download:hover {
-    background: linear-gradient(135deg, rgba(91, 141, 239, 0.25), rgba(91, 141, 239, 0.1));
-    box-shadow: 0 4px 24px rgba(91, 141, 239, 0.15);
+    background: rgba(91, 141, 239, 0.12);
+    box-shadow: 0 4px 20px rgba(91, 141, 239, 0.1);
 }
-.btn-download svg {
-    width: 15px;
-    height: 15px;
-    stroke: currentColor;
-    stroke-width: 2.5;
-    fill: none;
-    flex-shrink: 0;
-}
-.btn-download .dl-progress {
-    position: absolute;
-    left: 0; top: 0;
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, rgba(91, 141, 239, 0.25), rgba(139, 108, 246, 0.15));
-    border-radius: 100px;
-    transition: width 0.15s ease;
-    pointer-events: none;
-}
-.btn-download .dl-label {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    pointer-events: none;
-}
-
 
 .btn-role-select {
     position: absolute;
@@ -439,29 +404,30 @@ body {
 }
 
 /* ========== Button Click Feedback ========== */
-@keyframes rippleAnim {
-    from { transform: scale(0); opacity: 1; }
-    to { transform: scale(4); opacity: 0; }
+@keyframes btnFlash {
+    0% { filter: brightness(1); }
+    30% { filter: brightness(1.5); }
+    100% { filter: brightness(1); }
+}
+.btn-flash {
+    animation: btnFlash 0.35s ease-out;
 }
 
-/* Press scale effect */
-.btn:active { transform: scale(0.95); }
-.btn-download:active { background: rgba(91, 141, 239, 0.25) !important; }
-.btn-download:disabled { opacity: 0.6; }
-.nav-download:active { background: rgba(91, 141, 239, 0.12) !important; }
-.nav-download:active svg { transform: scale(0.85); }
-.btn-pass:active { background: rgba(74, 222, 128, 0.3) !important; }
-.btn-fail:active { background: rgba(248, 113, 113, 0.3) !important; }
-.btn-prev:active,
-.btn-skip:active { background: rgba(255,255,255,0.12) !important; }
-
-.nav-btn:active {
-    background: rgba(255,255,255,0.08) !important;
-    transform: scale(0.95) !important;
+@keyframes failPulse {
+    0% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.3); }
+    100% { box-shadow: 0 0 0 12px rgba(248, 113, 113, 0); }
 }
-.nav-btn:active svg { transform: scale(0.85); }
-.nav-fail:active { background: rgba(248, 113, 113, 0.12) !important; }
-.nav-pass:active { background: rgba(74, 222, 128, 0.12) !important; }
+.btn-fail.btn-flash {
+    animation: btnFlash 0.35s ease-out, failPulse 0.4s ease-out;
+}
+
+@keyframes passPulse {
+    0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.3); }
+    100% { box-shadow: 0 0 0 12px rgba(74, 222, 128, 0); }
+}
+.btn-pass.btn-flash {
+    animation: btnFlash 0.35s ease-out, passPulse 0.4s ease-out;
+}
 
 /* ========== Keyboard Shortcut Badges ========== */
 .btn kbd {
