@@ -266,7 +266,10 @@ async def get_review_image(
     if not image:
         return JSONResponse(content={"message": "暂无待审核图片", "image": None})
     
-    return {"image": image}
+    # 获取下一张预加载图片ID（确定性排序）
+    next_id = get_next_image_id(user_id, role_id, image.id if image else None)
+    
+    return {"image": image, "next_image_id": next_id}
 
 @app.post("/api/image/{image_id}/review")
 async def submit_image_review(
@@ -482,6 +485,29 @@ async def get_all_settings():
 async def get_review_rule_api():
     """获取审核规则"""
     return {"content": get_setting("review_rule") or ""}
+
+@app.get("/api/image/next-id")
+async def get_next_id(user_id: str, current_id: int, role_id: Optional[int] = None):
+    """获取下一张待审核图片ID（确定性排序，用于预加载）"""
+    from backend.database import get_db
+    next_id = get_next_image_id(user_id, role_id, current_id)
+    role_name = None
+    if next_id:
+        conn = None
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute("SELECT r.name FROM images i JOIN roles r ON i.role_id = r.id WHERE i.id = ?", (next_id,))
+            row = cursor.fetchone()
+            if row:
+                role_name = row[0]
+        except Exception:
+            pass
+        finally:
+            if conn:
+                conn.close()
+    return {"next_image_id": next_id, "role_name": role_name}
+
 
 @app.get("/api/settings/notice")
 async def get_notice():

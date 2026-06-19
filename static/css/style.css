@@ -24,7 +24,6 @@
                    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(139, 108, 246, 0.05) 0%, transparent 50%);
     --image-container-bg: rgba(255, 255, 255, 0.01);
     --image-container-glow: radial-gradient(ellipse at center, rgba(91,141,239,0.03) 0%, transparent 60%);
-    --skeleton-bg: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 100%);
     --modal-overlay: rgba(0,0,0,0.7);
     --prog-bar-track: rgba(255,255,255,0.1);
     --prog-bar-top-track: rgba(255,255,255,0.08);
@@ -54,7 +53,6 @@
                    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(123, 92, 232, 0.04) 0%, transparent 50%);
     --image-container-bg: transparent;
     --image-container-glow: radial-gradient(ellipse at center, rgba(74,125,232,0.03) 0%, transparent 60%);
-    --skeleton-bg: linear-gradient(90deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.04) 100%);
     --modal-overlay: rgba(0,0,0,0.4);
     --prog-bar-track: rgba(0,0,0,0.08);
     --prog-bar-top-track: rgba(0,0,0,0.06);
@@ -116,16 +114,31 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 4px; }
 
-/* ========== Skeleton ========== */
-@keyframes skeleton-pulse {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 0.6; }
+/* ========== Loading Indicator ========== */
+.loading-indicator {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9998;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px 32px;
+    background: rgba(0,0,0,0.45);
+    border-radius: 20px;
+    backdrop-filter: blur(12px);
+    width: auto;
+    height: auto;
+    min-width: 100px;
 }
-.skeleton {
-    background: var(--skeleton-bg);
-    background-size: 200% 100%;
-    animation: skeleton-pulse 1.8s ease-in-out infinite;
-    border-radius: 16px;
+.loading-indicator .loading-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-weight: 500;
 }
 
 /* ========== Loading Spinner ========== */
@@ -368,20 +381,55 @@ body {
 .btn-download {
     position: absolute;
     bottom: 36px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: fit-content;
     z-index: 50;
     padding: 10px 24px;
     font-size: 13px;
+    font-weight: 600;
     border-radius: 100px;
-    background: var(--bg-glass);
-    backdrop-filter: blur(12px);
+    background: linear-gradient(135deg, rgba(91, 141, 239, 0.15), rgba(91, 141, 239, 0.05));
     color: var(--accent-blue);
     border: 1px solid rgba(91, 141, 239, 0.2);
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    min-width: 120px;
+    justify-content: center;
 }
 .btn-download:hover {
-    background: rgba(91, 141, 239, 0.12);
-    box-shadow: 0 4px 20px rgba(91, 141, 239, 0.1);
+    background: linear-gradient(135deg, rgba(91, 141, 239, 0.25), rgba(91, 141, 239, 0.1));
+    box-shadow: 0 4px 24px rgba(91, 141, 239, 0.15);
+}
+.btn-download svg {
+    width: 15px;
+    height: 15px;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    fill: none;
+    flex-shrink: 0;
+}
+.btn-download .dl-progress {
+    position: absolute;
+    left: 0; top: 0;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, rgba(91, 141, 239, 0.25), rgba(139, 108, 246, 0.15));
+    border-radius: 100px;
+    transition: width 0.15s ease;
+    pointer-events: none;
+}
+.btn-download .dl-label {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
 }
 
 .btn-role-select {
@@ -403,6 +451,109 @@ body {
     border-color: var(--border-medium);
 }
 
+/* ========== Button Click Feedback ========== */
+@keyframes btnFlash {
+    0% { filter: brightness(1); }
+    30% { filter: brightness(1.5); }
+    100% { filter: brightness(1); }
+}
+.btn-flash {
+    animation: btnFlash 0.35s ease-out;
+}
+
+@keyframes failPulse {
+    0% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.3); }
+    100% { box-shadow: 0 0 0 12px rgba(248, 113, 113, 0); }
+}
+.btn-fail.btn-flash {
+    animation: btnFlash 0.35s ease-out, failPulse 0.4s ease-out;
+}
+
+@keyframes passPulse {
+    0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.3); }
+    100% { box-shadow: 0 0 0 12px rgba(74, 222, 128, 0); }
+}
+.btn-pass.btn-flash {
+    animation: btnFlash 0.35s ease-out, passPulse 0.4s ease-out;
+}
+
+/* ========== Button Click Feedback ========== */
+@keyframes rippleAnim {
+    from { transform: scale(0); opacity: 1; }
+    to { transform: scale(4); opacity: 0; }
+}
+.ripple {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    background: rgba(255,255,255,0.15);
+    transform: scale(0);
+    animation: rippleAnim 0.5s ease-out forwards;
+}
+
+.btn:active { transform: scale(0.95); }
+.btn-pass:active { background: rgba(74, 222, 128, 0.3) !important; }
+.btn-fail:active { background: rgba(248, 113, 113, 0.3) !important; }
+.btn-prev:active,
+.btn-skip:active { background: rgba(255,255,255,0.12) !important; }
+.btn-download:active { background: rgba(91, 141, 239, 0.25) !important; }
+
+.nav-btn:active {
+    background: rgba(255,255,255,0.08) !important;
+    transform: scale(0.95) !important;
+}
+.nav-btn:active svg { transform: scale(0.85); }
+.nav-fail:active { background: rgba(248, 113, 113, 0.12) !important; }
+.nav-pass:active { background: rgba(74, 222, 128, 0.12) !important; }
+.nav-download:active { background: rgba(91, 141, 239, 0.12) !important; }
+.nav-download:active svg { transform: scale(0.85); }
+
+/* ========== Keyboard Shortcut Badges ========== */
+.btn kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: inherit;
+    font-weight: 500;
+    line-height: 1.4;
+    color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    margin: 0 1px;
+    vertical-align: middle;
+    min-width: 16px;
+    text-align: center;
+}
+.btn-prev kbd {
+    font-size: 11px;
+    padding: 0 6px;
+    margin-left: 2px;
+}
+.btn-skip kbd {
+    font-size: 11px;
+    padding: 0 6px;
+    margin-right: 2px;
+}
+.btn-fail kbd,
+.btn-pass kbd {
+    background: rgba(0,0,0,0.25);
+    border-color: rgba(255,255,255,0.08);
+    font-size: 9px;
+    padding: 1px 4px;
+}
+[data-theme="light"] .btn kbd {
+    color: rgba(0,0,0,0.45);
+    background: rgba(0,0,0,0.05);
+    border-color: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .btn-fail kbd,
+[data-theme="light"] .btn-pass kbd {
+    background: rgba(255,255,255,0.5);
+    border-color: rgba(0,0,0,0.06);
+}
+
 /* ========== Image Container ========== */
 .image-container {
     max-width: 78%;
@@ -412,7 +563,7 @@ body {
     justify-content: center;
     position: relative;
     border-radius: 16px;
-    transition: box-shadow 0.4s ease-out;
+    transition: box-shadow 0.4s ease-out, opacity 0.25s ease-out;
     background: rgba(255,255,255,0.01);
 }
 .image-container::before {
@@ -424,17 +575,7 @@ body {
     border-radius: 50%;
 }
 
-.image-skeleton {
-    position: absolute;
-    max-width: 78%;
-    max-height: 68vh;
-    width: 100%; height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-.image-skeleton .skeleton { width: 100%; height: 100%; border-radius: 12px; }
+
 
 #reviewImage {
     max-width: 100%;
@@ -444,6 +585,17 @@ body {
     border-radius: 12px;
     position: relative;
     z-index: 1;
+    transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+}
+#reviewImage.loaded {
+    opacity: 1 !important;
+}
+@keyframes imgEnter {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
+}
+#reviewImage.enter {
+    animation: imgEnter 0.25s ease-out forwards;
 }
 
 /* No image hint */
@@ -471,7 +623,7 @@ body {
 .image-role-badge {
     position: absolute;
     top: 14px; left: 14px;
-    z-index: 10;
+    z-index: 15;
     background: var(--bg-glass);
     backdrop-filter: blur(12px);
     color: var(--text-primary);
@@ -1418,7 +1570,7 @@ body {
         max-width: 100%;
         max-height: var(--mobile-content-height);
     }
-    .image-skeleton { max-width: 100%; max-height: var(--mobile-content-height); }
+
 
     /* ---- Hide desktop buttons ---- */
     #passBtn, #failBtn, #downloadBtn, #prevBtn, #skipBtn {

@@ -73,19 +73,14 @@
         <!-- Top: Previous -->
         <button id="prevBtn" class="btn btn-prev" onclick="prevImage()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><polyline points="15 18 9 12 15 6"/></svg>
-            上一张
+            上一张 <kbd>←</kbd>
         </button>
 
         <!-- Top: Skip -->
         <button id="skipBtn" class="btn btn-skip" onclick="skipImage()">
-            无法定夺
+            <kbd>→</kbd> 无法定夺
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:4px;"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
-
-        <!-- Skeleton -->
-        <div id="imageSkeleton" class="image-skeleton" style="display:none;">
-            <div class="skeleton" style="width:100%;height:100%;"></div>
-        </div>
 
         <!-- Image Area -->
         <div class="image-container" id="imageContainer">
@@ -107,14 +102,24 @@
         </div>
 
         <!-- Bottom: Fail -->
-        <button id="failBtn" class="btn btn-fail" onclick="submitReview('fail')">不通过</button>
+        <button id="failBtn" class="btn btn-fail" onclick="submitReview('fail')">不通过 <kbd>1</kbd> <kbd>A</kbd></button>
 
         <!-- Bottom: Download -->
-        <button id="downloadBtn" class="btn btn-download" onclick="downloadImage()">下载</button>
+        <button id="downloadBtn" class="btn btn-download" onclick="downloadImage()">
+            <span class="dl-progress" id="dlProgress"></span>
+            <span class="dl-label" id="dlLabel">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span id="dlText">下载</span>
+            </span>
+        </button>
 
         <!-- Bottom: Pass -->
-        <button id="passBtn" class="btn btn-pass" onclick="submitReview('pass')">通过</button>
+        <button id="passBtn" class="btn btn-pass" onclick="submitReview('pass')">通过 <kbd>2</kbd> <kbd>D</kbd></button>
         <button id="roleSelectBtn" class="btn btn-role-select" onclick="showRoleModal()">选择角色</button>
+    <div id="loadingIndicator2" class="loading-indicator" style="display:none;">
+        <div class="loading-spinner"></div>
+        <span id="loadingText" class="loading-text"></span>
+    </div>
     </main>
 
     <!-- Mobile Bottom Navigation -->

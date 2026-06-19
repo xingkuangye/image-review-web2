@@ -421,6 +421,46 @@ def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optiona
     conn.close()
     return None
 
+def get_next_image_id(user_id: str, role_id: Optional[int] = None, exclude_id: Optional[int] = None) -> Optional[int]:
+    """获取下一张待审核图片ID（确定性排序）"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    params = [user_id, REVIEW_STATUS_SKIP, REVIEW_STATUS_SKIP, REQUIRED_VOTES]
+    
+    sql = f'''
+        SELECT i.id
+        FROM images i
+        LEFT JOIN roles r ON i.role_id = r.id
+        WHERE NOT EXISTS (
+            SELECT 1 FROM reviews 
+            WHERE image_id = i.id AND user_id = ? AND status != ?
+        )
+            AND (
+            SELECT COUNT(*) FROM reviews 
+            WHERE image_id = i.id AND status != ?
+        ) < ?
+    '''
+    if role_id:
+        sql += ' AND i.role_id = ?'
+        params = params + [role_id]
+    
+    # 先尝试获取比当前ID大的下一张
+    if exclude_id:
+        next_sql = sql + ' AND i.id > ? ORDER BY i.id ASC LIMIT 1'
+        cursor.execute(next_sql, params + [exclude_id])
+        row = cursor.fetchone()
+        if row:
+            conn.close()
+            return row[0]
+    
+    # 没有更大的了，从头开始取第一张
+    cursor.execute(sql + ' ORDER BY i.id ASC LIMIT 1', params)
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
 def submit_review(image_id: int, user_id: str, status: str):
     """提交审核结果"""
     conn = get_db()
