@@ -403,6 +403,77 @@ body {
     border-color: var(--border-medium);
 }
 
+/* ========== Button Click Feedback ========== */
+@keyframes btnFlash {
+    0% { filter: brightness(1); }
+    30% { filter: brightness(1.5); }
+    100% { filter: brightness(1); }
+}
+.btn-flash {
+    animation: btnFlash 0.35s ease-out;
+}
+
+@keyframes failPulse {
+    0% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.3); }
+    100% { box-shadow: 0 0 0 12px rgba(248, 113, 113, 0); }
+}
+.btn-fail.btn-flash {
+    animation: btnFlash 0.35s ease-out, failPulse 0.4s ease-out;
+}
+
+@keyframes passPulse {
+    0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.3); }
+    100% { box-shadow: 0 0 0 12px rgba(74, 222, 128, 0); }
+}
+.btn-pass.btn-flash {
+    animation: btnFlash 0.35s ease-out, passPulse 0.4s ease-out;
+}
+
+/* ========== Keyboard Shortcut Badges ========== */
+.btn kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: inherit;
+    font-weight: 500;
+    line-height: 1.4;
+    color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    margin: 0 1px;
+    vertical-align: middle;
+    min-width: 16px;
+    text-align: center;
+}
+.btn-prev kbd {
+    font-size: 11px;
+    padding: 0 6px;
+    margin-left: 2px;
+}
+.btn-skip kbd {
+    font-size: 11px;
+    padding: 0 6px;
+    margin-right: 2px;
+}
+.btn-fail kbd,
+.btn-pass kbd {
+    background: rgba(0,0,0,0.25);
+    border-color: rgba(255,255,255,0.08);
+    font-size: 9px;
+    padding: 1px 4px;
+}
+[data-theme="light"] .btn kbd {
+    color: rgba(0,0,0,0.45);
+    background: rgba(0,0,0,0.05);
+    border-color: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .btn-fail kbd,
+[data-theme="light"] .btn-pass kbd {
+    background: rgba(255,255,255,0.5);
+    border-color: rgba(0,0,0,0.06);
+}
+
 /* ========== Image Container ========== */
 .image-container {
     max-width: 78%;

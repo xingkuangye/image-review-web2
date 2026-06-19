@@ -559,9 +559,22 @@ async function loadRoleProgress() {
     }
 }
 
+
+// ========== 按钮视觉反馈 ==========
+function flashButton(btnId) {
+    var btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.classList.remove('btn-flash');
+    // Force reflow to re-trigger animation
+    void btn.offsetWidth;
+    btn.classList.add('btn-flash');
+    setTimeout(function() { btn.classList.remove('btn-flash'); }, 400);
+}
+
 // ========== 提交审核 ==========
 async function submitReview(status) {
     if (!currentImage || !currentUser) return;
+    flashButton(status === 'pass' ? 'passBtn' : status === 'fail' ? 'failBtn' : '');
     
     try {
         await fetch(`/api/image/${currentImage.id}/review`, {
@@ -587,6 +600,7 @@ async function submitReview(status) {
 
 // ========== 上一张（渐进加载）==========
 async function prevImage() {
+    flashButton('prevBtn');
     if (historyStack.length === 0) {
         alert('没有上一张图片');
         return;
@@ -711,6 +725,7 @@ async function prevImage() {
 }// ========== 跳过（无法定夺） ==========
 async function skipImage() {
     if (!currentImage || !currentUser) return;
+    flashButton('skipBtn');
     
     try {
         await fetch(`/api/image/${currentImage.id}/review`, {
