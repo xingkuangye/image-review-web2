@@ -6,66 +6,89 @@
     <title id="pageTitle">图片审核系统</title>
     <link id="pageIcon" rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128247;</text></svg>">
     <link rel="stylesheet" href="/static/css/style.css">
+    <script>
+    // Theme toggle — runs before render to prevent FOUC
+    (function() {
+        var theme = localStorage.getItem('review_theme');
+        if (!theme) {
+            theme = window.matchMedia('(prefers-color-scheme:light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+    })();
+    function toggleTheme() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'light' ? 'dark' : 'light';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('review_theme', next);
+    }
+    </script>
 </head>
 <body>
-    <!-- 顶部导航栏 -->
+    <!-- Top progress bar -->
+    <div id="topProgressBar" class="top-progress-bar">
+        <div id="topProgressFill" class="top-progress-fill"></div>
+    </div>
+    <!-- Navbar -->
     <nav class="navbar">
         <div class="nav-left">
             <span class="user-info">
                 <span id="userNickname" class="nickname" onclick="editNickname()">加载中...</span>
-                <span class="review-count">已审核: <span id="userReviewCount">0</span> 张</span>
+                <span class="review-count">已审核 <span id="userReviewCount">0</span> 张</span>
             </span>
-
         </div>
 
         <div class="nav-center">
             <div class="progress-container">
-                <span class="progress-label">投票进度: <span id="progressPercent">0</span>%</span>
+                <span class="progress-label"><span id="progressPercent">0</span>%</span>
                 <div class="progress-bar">
                     <div id="progressFill" class="progress-fill"></div>
                 </div>
-
-                <span class="progress-detail"><span id="reviewedCount">0</span>/<span id="totalCount">0</span> 票</span>
+                <span class="progress-detail"><span id="reviewedCount">0</span>/<span id="totalCount">0</span></span>
             </div>
 
             <div class="complete-container">
-                <span class="complete-label">完成审核:</span>
+                <span class="complete-label">完成</span>
                 <span id="completeCount" class="complete-count">0</span>
-                <span class="complete-total">/<span id="totalImages">0</span> 张</span>
+                <span class="complete-total">/<span id="totalImages">0</span></span>
             </div>
-
         </div>
 
         <div class="nav-right">
+            <button id="themeToggle" class="btn btn-theme" onclick="toggleTheme()" title="切换主题">
+                <span id="themeIcon"></span>
+            </button>
             <button id="ruleBtn" class="btn btn-rule" onclick="showRuleModal()">审核要求</button>
+            <button id="roleSelectBtnMobile" class="btn btn-rule btn-role-select-inline" onclick="showRoleModal()">角色</button>
             <span id="roleProgress" class="role-progress" style="display:none;">
-                当前角色进度: <span id="roleProgressPercent">0</span>%
+                角色进度: <span id="roleProgressPercent">0</span>%
             </span>
         </div>
-
     </nav>
 
-
-    <!-- 主内容区 -->
-
+    <!-- Main Content -->
+    <div class="review-layout">
     <main class="main-content">
-        <!-- 左上角：上一张 -->
+        <!-- Top: Previous -->
+        <button id="prevBtn" class="btn btn-prev" onclick="prevImage()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><polyline points="15 18 9 12 15 6"/></svg>
+            上一张
+        </button>
 
-        <button id="prevBtn" class="btn btn-prev" onclick="prevImage()">上一张</button>
+        <!-- Top: Skip -->
+        <button id="skipBtn" class="btn btn-skip" onclick="skipImage()">
+            无法定夺
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:4px;"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
 
-
-        <!-- 右上角：无法定夺 -->
-
-        <button id="skipBtn" class="btn btn-skip" onclick="skipImage()">无法定夺</button>
-
-
-        <!-- 骨架屏占位 -->
+        <!-- Skeleton -->
         <div id="imageSkeleton" class="image-skeleton" style="display:none;">
-            <div class="skeleton" style="width: 100%; height: 100%;"></div>
+            <div class="skeleton" style="width:100%;height:100%;"></div>
         </div>
 
-        <!-- 中央图片区域 -->
+        <!-- Image Area -->
         <div class="image-container" id="imageContainer">
+            <div id="roleBadge" class="image-role-badge" style="display:none;"></div>
             <img id="reviewImage" src="" alt="待审核图片" onerror="imageLoadError()">
             <div id="loadingIndicator" class="loading" style="display:none;">
                 <div class="loading-spinner"></div>
@@ -73,156 +96,124 @@
             </div>
             <div id="noImageHint" class="no-image-hint" style="display:none;">
                 <p>暂无待审核图片</p>
-
                 <p class="sub-hint">可能的原因：</p>
-
                 <ul class="sub-hint">
                     <li>所有图片已被审核完毕</li>
                     <li>尚未配置角色图库</li>
                     <li>当前角色下无待审核图片</li>
                 </ul>
-
             </div>
-
         </div>
 
-
-        <!-- 左下角：不通过 -->
-
+        <!-- Bottom: Fail -->
         <button id="failBtn" class="btn btn-fail" onclick="submitReview('fail')">不通过</button>
 
-
-        <!-- 右下角：通过 -->
-
-        <button id="passBtn" class="btn btn-pass" onclick="submitReview('pass')">通过</button>
-
-
-        <!-- 中间底部：下载按钮 -->
-
+        <!-- Bottom: Download -->
         <button id="downloadBtn" class="btn btn-download" onclick="downloadImage()">下载</button>
+
+        <!-- Bottom: Pass -->
+        <button id="passBtn" class="btn btn-pass" onclick="submitReview('pass')">通过</button>
+        <button id="roleSelectBtn" class="btn btn-role-select" onclick="showRoleModal()">选择角色</button>
     </main>
 
-
-    <!-- 移动端底部导航栏 -->
-
+    <!-- Mobile Bottom Navigation -->
     <nav class="mobile-bottom-nav">
         <button class="nav-btn nav-prev" onclick="prevImage()">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             <span>上一张</span>
         </button>
-
         <button class="nav-btn nav-fail" onclick="submitReview('fail')">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             <span>不通过</span>
         </button>
-
         <button class="nav-btn nav-pass" onclick="submitReview('pass')">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             <span>通过</span>
         </button>
-
         <button class="nav-btn nav-download" onclick="downloadImage()">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>下载</span>
         </button>
-
     </nav>
 
-
-    <!-- 角色选择按钮 -->
-
-    <button id="roleSelectBtn" class="btn btn-role-select" onclick="showRoleModal()">选择角色</button>
-
-
-    <!-- 角色选择弹窗 -->
-
-    <div id="roleModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>选择角色</h3>
-                <span class="close" onclick="closeRoleModal()">&times;</span>
+    <!-- Nickname Popover -->
+    <div id="nicknameModal" class="popover-overlay" onclick="closeNicknameModal(event)">
+        <div class="popover-card popover-nickname" onclick="event.stopPropagation()">
+            <div class="popover-header">
+                <span>修改昵称</span>
+                <button class="popover-close" onclick="closeNicknameModal()">&times;</button>
             </div>
-
-            <div class="modal-body">
-                <button class="btn btn-all-roles" onclick="selectRole(null)">全部角色</button>
-                <div id="roleList" class="role-list"></div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- 昵称编辑弹窗 -->
-
-    <div id="nicknameModal" class="modal">
-        <div class="modal-content modal-small">
-            <div class="modal-header">
-                <h3>修改昵称</h3>
-                <span class="close" onclick="closeNicknameModal()">&times;</span>
-            </div>
-
-            <div class="modal-body">
-                <input type="text" id="nicknameInput" class="input" placeholder="请输入昵称" maxlength="20">
-                <button class="btn btn-confirm" onclick="saveNickname()">确认</button>
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- 图片详情弹窗 -->
-
-    <div id="imageDetailModal" class="modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h3>图片详情</h3>
-                <span class="close" onclick="closeImageDetailModal()">&times;</span>
-            </div>
-
-            <div class="modal-body">
-                <div class="image-stats">
-                    <span>审核次数: <span id="detailReviewCount">0</span></span>
-                    <span>通过: <span id="detailPassCount" class="text-pass">0</span></span>
-
-                    <span>不通过: <span id="detailFailCount" class="text-fail">0</span></span>
-
-                    <span>跳过: <span id="detailSkipCount">0</span></span>
-
+            <div class="popover-body">
+                <div class="nickname-current">当前昵称：<span id="currentNickDisplay"></span></div>
+                <input type="text" id="nicknameInput" class="input" placeholder="输入新昵称" maxlength="20" autocomplete="off">
+                <div class="nickname-actions">
+                    <button class="btn btn-cancel" onclick="closeNicknameModal()">取消</button>
+                    <button class="btn btn-primary" onclick="saveNickname()">确认修改</button>
                 </div>
-
-                <div id="myStatus" class="my-status"></div>
-
             </div>
-
         </div>
-
     </div>
 
-
-    <!-- 审核要求弹窗 -->
-
-    <div id="ruleModal" class="modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h3>审核要求</h3>
-                <span class="close" onclick="closeRuleModal()">&times;</span>
+    <!-- Image Detail Popover -->
+    <div id="imageDetailModal" class="popover-overlay" onclick="closeImageDetailModal(event)">
+        <div class="popover-card popover-detail" onclick="event.stopPropagation()">
+            <div class="popover-header">
+                <span>图片详情</span>
+                <button class="popover-close" onclick="closeImageDetailModal()">&times;</button>
             </div>
-
-            <div class="modal-body">
-                <div id="ruleContent" class="rule-content">
-                    <p style="color:#888;">加载中...</p>
-
+            <div class="popover-body">
+                <div class="detail-grid">
+                    <div class="detail-stat">
+                        <span class="detail-num" id="detailReviewCount">0</span>
+                        <span class="detail-label">总审核</span>
+                    </div>
+                    <div class="detail-stat">
+                        <span class="detail-num text-pass" id="detailPassCount">0</span>
+                        <span class="detail-label">通过</span>
+                    </div>
+                    <div class="detail-stat">
+                        <span class="detail-num text-fail" id="detailFailCount">0</span>
+                        <span class="detail-label">不通过</span>
+                    </div>
+                    <div class="detail-stat">
+                        <span class="detail-num" id="detailSkipCount">0</span>
+                        <span class="detail-label">跳过</span>
+                    </div>
                 </div>
-
+                <div id="myStatus" class="detail-status"></div>
             </div>
-
         </div>
-
     </div>
 
+
+
+    </main>
+    <!-- Rule Sidebar -->
+    <aside id="rulePanel" class="rule-panel">
+        <div class="rule-panel-header">
+            <h3>审核要求</h3>
+            <button class="close" onclick="closeRulePanel()">&times;</button>
+        </div>
+        <div class="rule-panel-body">
+            <div id="ruleContent" class="rule-content">
+                <p style="color:var(--text-muted);">加载中...</p>
+            </div>
+        </div>
+    </aside>
+    <!-- Role Panel -->
+    <aside id="rolePanel" class="role-panel">
+        <div class="rule-panel-header">
+            <h3>选择角色</h3>
+            <button class="close" onclick="closeRolePanel()">&times;</button>
+        </div>
+        <div class="rule-panel-body">
+            <button class="btn btn-all-roles" onclick="selectRole(null)" style="width:100%;margin-bottom:12px;">全部角色</button>
+            <div id="roleList" class="role-list"></div>
+        </div>
+    </aside>
+    <!-- Panel overlay for mobile -->
+    <div id="panelOverlay" class="panel-overlay" onclick="closeRulePanel();closeRolePanel();"></div>
+    </div>
 
     <script src="/static/js/app.js"></script>
 </body>

@@ -48,3 +48,7 @@ backup_v0.8/
 
 # 本地工具目录（不部署）
 tools/
+
+# Local data & images (not deployed)
+data/
+images/

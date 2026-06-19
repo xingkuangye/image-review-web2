@@ -5,14 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>图片审核系统 - 后台管理</title>
     <link rel="stylesheet" href="/static/css/admin.css">
+    <script>
+    // Theme toggle — runs before render to prevent FOUC
+    (function() {
+        var theme = localStorage.getItem('review_theme');
+        if (!theme) {
+            theme = window.matchMedia('(prefers-color-scheme:light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+    })();
+    function toggleTheme() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'light' ? 'dark' : 'light';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('review_theme', next);
+    }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <!-- 登录界面 -->
+    <!-- Login -->
     <div id="loginPage" class="page">
         <div class="login-box">
+            <div class="login-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
             <h1>后台管理</h1>
             <p class="login-hint">请输入管理员密码</p>
-            <input type="password" id="adminPassword" class="input" placeholder="密码">
+            <input type="password" id="adminPassword" class="input" placeholder="密码" onkeypress="if(event.key==='Enter')verifyPassword()">
+            <label class="remember-label">
+                <input type="checkbox" id="rememberMe" checked>
+                <span class="checkbox-custom"></span>
+                记住登录状态（7天）
+            </label>
             <button class="btn btn-login" onclick="verifyPassword()">登录</button>
             <p id="loginError" class="error" style="display:none;">密码错误</p>
             <p class="login-tip">密码将在控制台首次启动时显示</p>
@@ -20,66 +46,80 @@
         </div>
     </div>
 
-    <!-- 管理主界面 -->
+    <!-- Admin Main -->
     <div id="adminPage" class="page" style="display:none;">
-        <!-- 顶部导航 -->
+        <!-- Nav -->
         <nav class="navbar">
             <div class="nav-left">
                 <h2>后台管理</h2>
             </div>
             <div class="nav-right">
-                <button class="btn btn-logout" onclick="logout()">退出</button>
+                <button id="themeToggle" class="btn btn-theme" onclick="toggleTheme()" title="切换主题">
+                    <span id="themeIcon"></span>
+                </button>
+                <button class="btn btn-logout" onclick="logout()">退出登录</button>
             </div>
         </nav>
 
-        <!-- 功能标签 -->
+        <!-- Tabs -->
         <div class="tabs">
-            <button class="tab active" data-tab="roles" onclick="switchTab('roles')">设置角色图库路径</button>
-            <button class="tab" data-tab="users" onclick="switchTab('users')">管理用户</button>
-            <button class="tab" data-tab="stats" onclick="switchTab('stats')">查看审核状况</button>
+            <button class="tab active" data-tab="roles" onclick="switchTab('roles')">角色图库</button>
+            <button class="tab" data-tab="users" onclick="switchTab('users')">用户管理</button>
+            <button class="tab" data-tab="stats" onclick="switchTab('stats')">审核状况</button>
             <button class="tab" data-tab="backup" onclick="switchTab('backup')">备份管理</button>
             <button class="tab" data-tab="settings" onclick="switchTab('settings')">网站设置</button>
+            <button class="tab" data-tab="health" onclick="switchTab('health')">系统状态</button>
         </div>
 
-        <!-- 角色图库管理 -->
+        <!-- Roles -->
         <div id="tab-roles" class="tab-content active">
             <div class="panel">
                 <div class="panel-header">
                     <h3>角色列表</h3>
-                    <button class="btn btn-add" onclick="showAddRoleModal()">添加新路径</button>
+                    <button class="btn btn-primary" onclick="showAddRoleModal()">+ 添加新路径</button>
                 </div>
-                <div id="roleList" class="role-list"></div>
+                <div id="roleList" class="admin-list"></div>
             </div>
         </div>
 
-        <!-- 用户管理 -->
+        <!-- Users -->
         <div id="tab-users" class="tab-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>用户活跃趋势</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="usersChart" height="200"></canvas>
+                </div>
+            </div>
             <div class="panel">
                 <div class="panel-header">
                     <h3>用户列表</h3>
                     <div class="sort-controls">
-                        <label>排序:</label>
-                        <select id="userSort" onchange="loadUsers()">
+                        <label>排序</label>
+                        <select id="userSort" class="select" onchange="loadUsers()">
                             <option value="id">按ID</option>
                             <option value="total_reviews">按审核数量</option>
-                            <option value="last_active">按最后活动时间</option>
+                            <option value="last_active">按最后活动</option>
                         </select>
                     </div>
                 </div>
-                <div id="userList" class="user-list"></div>
+                <div id="userList" class="admin-list"></div>
             </div>
         </div>
 
-        <!-- 审核状况 -->
+        <!-- Stats -->
         <div id="tab-stats" class="tab-content">
             <div class="panel">
                 <div class="panel-header">
                     <h3>总体审核状况</h3>
-                    <button class="btn btn-export" onclick="exportApproved()">导出审核通过的图片</button>
-                    <button class="btn btn-export" onclick="exportDisputed()">导出争议图片</button>
+                    <div class="btn-group">
+                        <button class="btn btn-outline" onclick="exportApproved()">导出通过</button>
+                        <button class="btn btn-outline" onclick="exportDisputed()">导出争议</button>
+                    </div>
                 </div>
                 <div class="stats-overview">
-                    <div class="progress-container">
+                    <div class="progress-section">
                         <span class="progress-label">总体进度</span>
                         <div class="progress-bar">
                             <div id="totalProgress" class="progress-fill"></div>
@@ -89,108 +129,119 @@
                     <div class="stats-cards">
                         <div class="stat-card">
                             <div class="stat-value" id="totalImages">0</div>
-                            <div class="stat-label">总图片数</div>
+                            <div class="stat-label">总图片</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-value" id="totalVotes">0</div>
-                            <div class="stat-label">总投票数</div>
+                            <div class="stat-label">总投票</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-value" id="totalCompleted">0</div>
                             <div class="stat-label">审核完毕</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value text-pass" id="totalPass">0</div>
+                        <div class="stat-card stat-pass">
+                            <div class="stat-value" id="totalPass">0</div>
                             <div class="stat-label">通过</div>
                         </div>
-                        <div class="stat-card">
-                             <div class="stat-value" id="totalDisputed">0</div>
+                        <div class="stat-card stat-disputed">
+                            <div class="stat-value" id="totalDisputed">0</div>
                             <div class="stat-label">有争议</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value text-fail" id="totalFail">0</div>
+                        <div class="stat-card stat-fail">
+                            <div class="stat-value" id="totalFail">0</div>
                             <div class="stat-label">不通过</div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div class="panel">
                 <div class="panel-header">
                     <h3>各角色审核状况</h3>
                 </div>
-                <div id="roleStatsList" class="role-stats-list"></div>
+                <div id="roleStatsList" class="admin-list"></div>
+            </div>
+        </div>
+
+        <!-- Backup -->
+        <div id="tab-backup" class="tab-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>自动备份设置</h3>
+                </div>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="settingAutoBackupEnabled" onchange="saveAutoBackupEnabled()">
+                            <span class="checkbox-custom"></span>
+                            启用自动备份
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>备份时间</label>
+                            <input type="time" id="settingAutoBackupTime" class="input" value="03:00">
+                            <span class="hint-text">每天自动备份的时间</span>
+                        </div>
+                        <div class="form-group">
+                            <label>保留天数</label>
+                            <input type="number" id="settingBackupRetentionDays" class="input" value="7" min="1" max="365">
+                            <span class="hint-text">超过此天数自动删除</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveBackupSettings()">保存设置</button>
+                    <p id="backupSettingsMsg" class="success-msg" style="display:none;">保存成功</p>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>备份列表</h3>
+                    <button class="btn btn-primary" onclick="manualBackup()">+ 立即备份</button>
+                </div>
+                <div id="backupList" class="admin-list"><p class="empty-hint">加载中...</p></div>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div id="tab-settings" class="tab-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>网站设置</h3>
+                </div>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label>网页标题</label>
+                        <input type="text" id="settingTitle" class="input" placeholder="请输入网页标题" maxlength="50">
+                    </div>
+                    <div class="form-group">
+                        <label>网页图标（URL 或 SVG）</label>
+                        <textarea id="settingIcon" class="input textarea" placeholder="图标 URL 或 SVG 代码" rows="3"></textarea>
+                        <span class="hint-text">如 data:image/svg+xml,&lt;svg...&gt;</span>
+                    </div>
+                    <div class="form-group">
+                        <label>审核要求（Markdown）</label>
+                        <textarea id="settingReviewRule" class="input textarea" placeholder="支持 Markdown 格式" rows="10"></textarea>
+                        <span class="hint-text">支持 **粗体**、*斜体*、# 标题、- 列表等语法</span>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+                    <p id="settingsMsg" class="success-msg" style="display:none;">保存成功</p>
+                </div>
+            </div>
+        </div>
+    <!-- Health -->
+    <div id="tab-health" class="tab-content">
+        <div class="panel">
+            <div class="panel-header">
+                <h3>系统健康检查</h3>
+                <button class="btn btn-outline" onclick="loadHealth()">刷新</button>
+            </div>
+            <div id="healthContent" class="health-content">
+                <div class="health-loading">检查中...</div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- 备份管理 -->
-    <div id="tab-backup" class="tab-content">
-        <div class="panel">
-            <div class="panel-header">
-                <h3>自动备份设置</h3>
-            </div>
-            <div class="settings-form">
-                <div class="form-group">
-                    <label style="display:flex;align-items:center;gap:8px;">
-                        <input type="checkbox" id="settingAutoBackupEnabled" onchange="saveAutoBackupEnabled()">
-                        启用自动备份
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>备份时间</label>
-                    <input type="time" id="settingAutoBackupTime" class="input" value="03:00">
-                    <small class="hint-text">每天自动执行备份的时间</small>
-                </div>
-                <div class="form-group">
-                    <label>备份保留天数</label>
-                    <input type="number" id="settingBackupRetentionDays" class="input" value="7" min="1" max="365">
-                    <small class="hint-text">超过此天数的备份将自动删除</small>
-                </div>
-                <button class="btn btn-confirm" onclick="saveBackupSettings()">保存设置</button>
-                <p id="backupSettingsMsg" style="margin-top:12px;color:#4CAF50;display:none;">保存成功</p>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">
-                <h3>备份列表</h3>
-                <button class="btn btn-add" onclick="manualBackup()">立即备份</button>
-            </div>
-            <div id="backupList" class="backup-list">
-                <p style="padding:20px;color:#888;text-align:center;">加载中...</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- 网站设置 -->
-    <div id="tab-settings" class="tab-content">
-        <div class="panel">
-            <div class="panel-header">
-                <h3>网站设置</h3>
-            </div>
-            <div class="settings-form">
-                <div class="form-group">
-                    <label>网页标题</label>
-                    <input type="text" id="settingTitle" class="input" placeholder="请输入网页标题" maxlength="50">
-                </div>
-                <div class="form-group">
-                    <label>网页图标（URL或SVG代码）</label>
-                    <textarea id="settingIcon" class="input textarea" placeholder="请输入图标URL或SVG代码" rows="3"></textarea>
-                    <small class="hint-text">支持URL或直接粘贴SVG代码，如: data:image/svg+xml,&lt;svg...&gt;</small>
-                </div>
-                <div class="form-group">
-                    <label>审核要求（支持Markdown）</label>
-                    <textarea id="settingReviewRule" class="input textarea" placeholder="请输入审核要求，支持Markdown格式" rows="10"></textarea>
-                    <small class="hint-text">支持Markdown格式，可使用 # 标题、**粗体**、*斜体*、- 列表 等语法</small>
-                </div>
-                <button class="btn btn-confirm" onclick="saveSettings()">保存设置</button>
-                <p id="settingsMsg" style="margin-top:12px;color:#4CAF50;display:none;">保存成功</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- 添加角色弹窗 -->
+    <!-- Add Role Modal -->
     <div id="addRoleModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -205,22 +256,22 @@
                 <div class="form-group">
                     <label>图片路径</label>
                     <div class="path-input-group">
-                        <input type="text" id="rolePath" class="input" placeholder="选择文件夹或手动输入路径，如 C:\images\role1">
-                        <label class="btn btn-browse" for="roleFolderSelect">选择文件夹</label>
+                        <input type="text" id="rolePath" class="input" placeholder="选择或输入路径">
+                        <label class="btn btn-browse" for="roleFolderSelect">浏览</label>
                         <input type="file" id="roleFolderSelect" style="display:none" webkitdirectory multiple onchange="handleFolderSelect(this, 'rolePath')">
                     </div>
-                    <small class="hint-text">提示：点击"选择文件夹"可直接选取图片所在目录</small>
+                    <span class="hint-text">点击「浏览」选择图片目录</span>
                 </div>
                 <div class="form-group">
                     <label>角色头像（可选）</label>
                     <input type="file" id="roleAvatar" class="input-file" accept="image/*">
                 </div>
-                <button class="btn btn-confirm" onclick="addRole()">添加</button>
+                <button class="btn btn-primary btn-full" onclick="addRole()">添加</button>
             </div>
         </div>
     </div>
 
-    <!-- 修改角色弹窗 -->
+    <!-- Edit Role Modal -->
     <div id="editRoleModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -236,22 +287,22 @@
                 <div class="form-group">
                     <label>图片路径</label>
                     <div class="path-input-group">
-                        <input type="text" id="editRolePath" class="input" placeholder="选择文件夹或手动输入路径">
-                        <label class="btn btn-browse" for="editFolderSelect">选择文件夹</label>
+                        <input type="text" id="editRolePath" class="input" placeholder="选择或输入路径">
+                        <label class="btn btn-browse" for="editFolderSelect">浏览</label>
                         <input type="file" id="editFolderSelect" style="display:none" webkitdirectory multiple onchange="handleFolderSelect(this, 'editRolePath')">
                     </div>
-                    <small class="hint-text">提示：点击"选择文件夹"可直接选取图片所在目录</small>
+                    <span class="hint-text">点击「浏览」选择图片目录</span>
                 </div>
                 <div class="form-group">
-                    <label>新头像（可选，不上传则保留原头像）</label>
+                    <label>新头像（可选，留空保留原头像）</label>
                     <input type="file" id="editRoleAvatar" class="input-file" accept="image/*">
                 </div>
-                <button class="btn btn-confirm" onclick="updateRole()">保存修改</button>
+                <button class="btn btn-primary btn-full" onclick="updateRole()">保存修改</button>
             </div>
         </div>
     </div>
 
-    <!-- 用户审核记录弹窗 -->
+    <!-- User Reviews Modal -->
     <div id="userReviewsModal" class="modal">
         <div class="modal-content modal-large">
             <div class="modal-header">
@@ -259,7 +310,7 @@
                 <span class="close" onclick="closeUserReviewsModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <div id="userReviewsList" class="reviews-list"></div>
+                <div id="userReviewsList" class="admin-list"></div>
             </div>
         </div>
     </div>
