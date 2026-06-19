@@ -1003,8 +1003,17 @@ function closeRulePanel() {
 function parseMarkdown(text) {
     if (!text) return '';
     
+    // 第〇步：提取 <details> 块，暂存为占位符
+    var blocks = [];
+    var counter = 0;
+    text = text.replace(/<details>([\s\S]*?)<\/details>/g, function(m, inner) {
+        var ph = '%%DETAILS_' + (counter++) + '%%';
+        blocks.push(m);
+        return ph;
+    });
+    
     // 第一步：HTML实体转义（防止XSS）
-    let escaped = text
+    var escaped = text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -1012,32 +1021,72 @@ function parseMarkdown(text) {
         .replace(/'/g, '&#x27;');
     
     // 第二步：解析Markdown语法
-    return escaped
-        // 标题（使用捕获组避免XSS）
+    var result = escaped
         .replace(/^### (.+)$/gm, '<h3>$1</h3>')
         .replace(/^## (.+)$/gm, '<h2>$1</h2>')
         .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        // 粗体和斜体
         .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        // 代码（内容已经是转义的）
         .replace(/`(.+?)`/g, '<code>$1</code>')
-        // 引用
         .replace(/&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
-        // 图片（支持 ![alt](url =WxH) 语法）
-        .replace(/!\[([^\]]*)\]\(([^)=]+)(?:=(\d+)x(\d+))?\)/g, function(match, alt, url, width, height) {
-            var style = 'max-width:100%;';
-            if (width) style += 'width:' + width + 'px;';
-            if (height) style += 'height:' + height + 'px;';
-            return '<img src="' + url + '" alt="' + alt + '" style="' + style + '">';
+        .replace(/!\[([^\]]*)\]\(([^)=]+)(?:=(\d+)x(\d+))?\)/g, function(m, alt, url, w, h) {
+            var s = 'max-width:100%;';
+            if (w) s += 'width:' + w + 'px;';
+            if (h) s += 'height:' + h + 'px;';
+            return '<img src="' + url + '" alt="' + alt + '" style="' + s + '">';
         })
-        // 列表
         .replace(/^- (.+)$/gm, '<li>$1</li>')
-        .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
-        // 换行
+        .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+    
+    // 第三步：包裹连续 <li> 为 <ul>（在换行转段落之前！）
+    result = result.replace(/(<li>[\s\S]*?<\/li>(?:\s*<li>[\s\S]*?<\/li>)*)/g, '<ul>$1</ul>');
+    
+    // 第四步：换行转段落
+    result = result
         .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>');
+    
+    // 连续图片组包裹（在换行转段落之后，允许中间有 <br>）
+    result = result.replace(/(<img[^>]*>(?:\s*(?:<br>)?\s*<img[^>]*>)+)/g, '<div class="img-group">$1</div>');
+    
+    // 第六步：恢复 details 块
+    for (var i = 0; i < blocks.length; i++) {
+        var raw = blocks[i];
+        // 提取 summary
+        var summaryMatch = raw.match(/<summary>([\s\S]*?)<\/summary>/);
+        var summaryHtml = summaryMatch ? '<summary>' + parseInlineMarkdown(summaryMatch[1]) + '</summary>' : '';
+        // 提取 body（summary 后面的内容，去掉 </details>）
+        var bodyStart = raw.indexOf('</summary>');
+        var body = '';
+        if (bodyStart >= 0) {
+            body = raw.substring(bodyStart + 10);
+            // 去掉末尾的 </details>
+            var closeTag = body.lastIndexOf('</details>');
+            if (closeTag >= 0) body = body.substring(0, closeTag);
+        } else {
+            body = raw.substring(8, raw.length - 9);
+        }
+        var bodyHtml = parseMarkdown(body);
+        var html = '<details>' + summaryHtml + bodyHtml + '</details>';
+        result = result.replace('%%DETAILS_' + i + '%%', html);
+    }
+    
+    return result;
+}
+
+function parseInlineMarkdown(text) {
+    return text
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`(.+?)`/g, '<code>$1</code>')
+        .replace(/!\[([^\]]*)\]\(([^)=]+)(?:=(\d+)x(\d+))?\)/g, function(m, alt, url, w, h) {
+            var s = 'max-width:100%;';
+            if (w) s += 'width:' + w + 'px;';
+            if (h) s += 'height:' + h + 'px;';
+            return '<img src="' + url + '" alt="' + alt + '" style="' + s + '">';
+        });
 }
 
 // ========== 页面加载时获取配置 ==========
