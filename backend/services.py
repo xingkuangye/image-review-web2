@@ -443,7 +443,7 @@ def get_next_image_id(user_id: str, role_id: Optional[int] = None, exclude_id: O
     '''
     if role_id:
         sql += ' AND i.role_id = ?'
-        params = [role_id, user_id, REVIEW_STATUS_SKIP, REVIEW_STATUS_SKIP, REQUIRED_VOTES]
+        params = params + [role_id]
     
     # 先尝试获取比当前ID大的下一张
     if exclude_id:

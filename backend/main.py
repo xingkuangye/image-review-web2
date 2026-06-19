@@ -493,6 +493,7 @@ async def get_next_id(user_id: str, current_id: int, role_id: Optional[int] = No
     next_id = get_next_image_id(user_id, role_id, current_id)
     role_name = None
     if next_id:
+        conn = None
         try:
             conn = get_db()
             cursor = conn.cursor()
@@ -500,9 +501,11 @@ async def get_next_id(user_id: str, current_id: int, role_id: Optional[int] = No
             row = cursor.fetchone()
             if row:
                 role_name = row[0]
-            conn.close()
         except Exception:
             pass
+        finally:
+            if conn:
+                conn.close()
     return {"next_image_id": next_id, "role_name": role_name}
 
 

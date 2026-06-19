@@ -628,7 +628,7 @@ document.addEventListener('pointerdown', function(e) {
 function flashButton(btnId) {
     var btn = document.getElementById(btnId);
     if (!btn) {
-        var map = { passBtn: '.nav-pass', failBtn: '.nav-fail', prevBtn: '.nav-prev', downloadBtn: '.nav-download' };
+        var map = { passBtn: '.nav-pass', failBtn: '.nav-fail', prevBtn: '.nav-prev', downloadBtn: '.nav-download', skipBtn: '.nav-prev' };
         btn = document.querySelector('.mobile-bottom-nav ' + (map[btnId] || ''));
     }
     if (!btn) return;
@@ -802,6 +802,7 @@ async function submitReview(status) {
         
     } catch (e) {
         reviewLocked = false;
+        hideLoadingBar();
         console.error('提交审核失败:', e);
         alert('提交失败，请重试');
     }

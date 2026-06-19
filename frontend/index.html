@@ -84,11 +84,6 @@
 
         <!-- Image Area -->
         <div class="image-container" id="imageContainer">
-            <!-- Loading progress bar (from bottom to top) -->
-            <div id="loadingIndicator2" class="loading-indicator" style="display:none;">
-                <div class="loading-spinner"></div>
-                <span id="loadingText" class="loading-text"></span>
-            </div>
             <div id="roleBadge" class="image-role-badge" style="display:none;"></div>
             <img id="reviewImage" src="" alt="待审核图片" onerror="imageLoadError()">
             <div id="loadingIndicator" class="loading" style="display:none;">
@@ -123,6 +118,7 @@
         <button id="roleSelectBtn" class="btn btn-role-select" onclick="showRoleModal()">选择角色</button>
     <div id="loadingIndicator2" class="loading-indicator" style="display:none;">
         <div class="loading-spinner"></div>
+        <span id="loadingText" class="loading-text"></span>
     </div>
     </main>
 
