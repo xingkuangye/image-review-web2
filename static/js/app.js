@@ -9,6 +9,10 @@ let historyStack = [];
 let thumbnailAbortController = null;
 let fullImageAbortController = null;
 
+// 预加载下一张图片
+let preloadNextId = null;
+let preloadBlobUrl = null;
+
 // ========== 图片阴影管理器 ==========
 class ImageShadowManager {
     constructor(options = {}) {
@@ -443,6 +447,7 @@ async function loadImage() {
         }
 
         currentImage = data.image;
+        preloadNextId = data.next_image_id || null;
         updateRoleBadge();
         const thisImageId = currentImage.id;  // 保存本次加载的图片ID
         currentImageId = thisImageId;  // 更新全局当前图片ID
@@ -453,6 +458,31 @@ async function loadImage() {
             const thumbnailSignal = thumbnailAbortController.signal;
 
             // 第一步：先加载缩略图（快速预览）
+            // 检查预加载缓存
+            if (preloadBlobUrl && preloadNextId === thisImageId) {
+                image.src = preloadBlobUrl;
+                preloadBlobUrl = null;
+                preloadNextId = null;
+                if (skeleton) skeleton.style.display = 'none';
+                image.style.display = 'block';
+                image.style.opacity = '1';
+                image.classList.add('loaded');
+                
+                // 后台加载原图
+                fullImageAbortController = new AbortController();
+                var fullSignal = fullImageAbortController.signal;
+                var fullUrl = '/api/image/' + thisImageId + '/download?t=' + Date.now();
+                fetch(fullUrl, { signal: fullSignal }).then(function(r) { return r.blob(); }).then(function(blob) {
+                    if (currentImageId !== thisImageId) return;
+                    var url2 = URL.createObjectURL(blob);
+                    if (image._fullUrl) URL.revokeObjectURL(image._fullUrl);
+                    image.src = url2;
+                    image._fullUrl = url2;
+                    updateImageShadow(image);
+                }).catch(function(e) { if (e.name !== 'AbortError') console.error('原图加载失败:', e); });
+                return;
+            }
+            
             const thumbnailUrl = '/api/image/' + thisImageId + '/thumbnail?t=' + Date.now();
 
             // 使用 fetch + blob 方式，可以取消请求
@@ -521,6 +551,8 @@ async function loadImage() {
                 }
 
                 updateImageShadow(image);
+                // 预加载下一张缩略图
+                preloadNextThumbnail();
             } catch (e) {
                 if (e.name === 'AbortError') {
                     // 缩略图下载被取消
@@ -569,6 +601,28 @@ function flashButton(btnId) {
     void btn.offsetWidth;
     btn.classList.add('btn-flash');
     setTimeout(function() { btn.classList.remove('btn-flash'); }, 400);
+}
+
+
+// ========== 预加载下一张缩略图 ==========
+function preloadNextThumbnail() {
+    if (!preloadNextId) return;
+    
+    // 清理旧预加载
+    if (preloadBlobUrl) {
+        URL.revokeObjectURL(preloadBlobUrl);
+        preloadBlobUrl = null;
+    }
+    
+    var imgId = preloadNextId;
+    var url = '/api/image/' + imgId + '/thumbnail?t=' + Date.now();
+    
+    fetch(url)
+        .then(function(r) { return r.blob(); })
+        .then(function(blob) {
+            preloadBlobUrl = URL.createObjectURL(blob);
+        })
+        .catch(function() {});
 }
 
 // ========== 提交审核 ==========
@@ -633,6 +687,8 @@ async function prevImage() {
     currentImage = historyStack.pop();
     currentImageId = currentImage.id;  // 更新当前图片ID
     updateRoleBadge();
+    preloadNextId = null;
+    if (preloadBlobUrl) { URL.revokeObjectURL(preloadBlobUrl); preloadBlobUrl = null; }
     const image = document.getElementById('reviewImage');
     const loading = document.getElementById('loadingIndicator');
     const noImage = document.getElementById('noImageHint');

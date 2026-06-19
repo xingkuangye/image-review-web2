@@ -266,7 +266,10 @@ async def get_review_image(
     if not image:
         return JSONResponse(content={"message": "暂无待审核图片", "image": None})
     
-    return {"image": image}
+    # 获取下一张预加载图片ID（确定性排序）
+    next_id = get_next_image_id(user_id, role_id, image.id if image else None)
+    
+    return {"image": image, "next_image_id": next_id}
 
 @app.post("/api/image/{image_id}/review")
 async def submit_image_review(
