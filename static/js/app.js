@@ -758,11 +758,14 @@ async function submitReview(status) {
             // 7. 解锁审核
             reviewLocked = false;
             
-            // 8. 后台获取角色名 + 预加载下一张
+            // 8. 获取当前图片的角色名 + 预加载下一张
             var uid = currentUser.id;
             var roleParam = currentRoleId ? '&role_id=' + currentRoleId : '';
+            
+            // 预加载下一张
             var nextUrl = '/api/image/next-id?user_id=' + uid + '&current_id=' + nextId + roleParam;
             fetch(nextUrl).then(function(r) { return r.json(); }).then(function(d) {
+                // 更新当前图片角色名
                 if (d.role_name && currentImage && currentImage.id === nextId) {
                     currentImage.role_name = d.role_name;
                     updateRoleBadge();

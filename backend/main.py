@@ -488,25 +488,39 @@ async def get_review_rule_api():
 
 @app.get("/api/image/next-id")
 async def get_next_id(user_id: str, current_id: int, role_id: Optional[int] = None):
-    """获取下一张待审核图片ID（确定性排序，用于预加载）"""
+    """获取下一张待审核图片ID（随机排序，用于预加载）
+    同时返回当前图片(current_id)的角色名
+    """
     from backend.database import get_db
     next_id = get_next_image_id(user_id, role_id, current_id)
-    role_name = None
-    if next_id:
-        conn = None
-        try:
-            conn = get_db()
-            cursor = conn.cursor()
+    
+    current_role_name = None
+    next_role_name = None
+    
+    conn = None
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # 获取当前图片的角色名（用于徽标显示）
+        cursor.execute("SELECT r.name FROM images i JOIN roles r ON i.role_id = r.id WHERE i.id = ?", (current_id,))
+        row = cursor.fetchone()
+        if row:
+            current_role_name = row[0]
+        
+        # 获取下一张图片的角色名
+        if next_id:
             cursor.execute("SELECT r.name FROM images i JOIN roles r ON i.role_id = r.id WHERE i.id = ?", (next_id,))
             row = cursor.fetchone()
             if row:
-                role_name = row[0]
-        except Exception:
-            pass
-        finally:
-            if conn:
-                conn.close()
-    return {"next_image_id": next_id, "role_name": role_name}
+                next_role_name = row[0]
+    except Exception:
+        pass
+    finally:
+        if conn:
+            conn.close()
+    
+    return {"next_image_id": next_id, "role_name": current_role_name, "next_role_name": next_role_name}
 
 
 @app.get("/api/settings/notice")
