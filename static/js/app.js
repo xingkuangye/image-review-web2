@@ -652,6 +652,8 @@ function createRipple(btn) {
         span.style.background = 'rgba(248, 113, 113, 0.2)';
     } else if (btn.classList.contains('btn-download') || btn.classList.contains('nav-download')) {
         span.style.background = 'rgba(91, 141, 239, 0.2)';
+    } else if (btn.classList.contains('btn-prev') || btn.classList.contains('nav-prev') || btn.classList.contains('btn-skip')) {
+        span.style.background = 'rgba(255, 255, 255, 0.1)';
     }
     document.body.appendChild(span);
     setTimeout(function() { span.remove(); }, 500);
