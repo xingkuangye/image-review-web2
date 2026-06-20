@@ -445,17 +445,17 @@ def get_next_image_id(user_id: str, role_id: Optional[int] = None, exclude_id: O
         sql += ' AND i.role_id = ?'
         params = params + [role_id]
     
-    # 随机取一张（排除当前图片）
+    # 先尝试获取比当前ID大的下一张
     if exclude_id:
-        all_sql = sql + ' AND i.id != ? ORDER BY RANDOM() LIMIT 1'
-        cursor.execute(all_sql, params + [exclude_id])
+        next_sql = sql + ' AND i.id > ? ORDER BY i.id ASC LIMIT 1'
+        cursor.execute(next_sql, params + [exclude_id])
         row = cursor.fetchone()
         if row:
             conn.close()
             return row[0]
     
-    # 无当前图片时随机取第一张
-    cursor.execute(sql + ' ORDER BY RANDOM() LIMIT 1', params)
+    # 没有更大的了，从头开始取第一张
+    cursor.execute(sql + ' ORDER BY i.id ASC LIMIT 1', params)
     row = cursor.fetchone()
     conn.close()
     return row[0] if row else None
