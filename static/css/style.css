@@ -150,17 +150,6 @@ body {
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
-.loading {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 12px;
-    font-size: 14px; color: var(--text-secondary);
-    background: rgba(0,0,0,0.3);
-    border-radius: 16px;
-    z-index: 5;
-}
-
 /* ========== Navbar ========== */
 .navbar {
     display: flex;
@@ -229,17 +218,20 @@ body {
 
 /* Restore specific transitions overridden by theme toggle */
 .progress-fill,
-.image-container,
-#reviewImage,
-.skeleton,
 .navbar,
-.btn,
 .modal,
 .modal-content,
 .role-item,
 .user-item,
 .review-item {
-    transition: var(--transition-override, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease);
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+}
+.image-container,
+#reviewImage {
+    transition: box-shadow 0.4s ease-out, opacity 0.25s ease-out;
+}
+.btn {
+    transition: transform 0.1s ease, background 0.15s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
 .progress-fill {
@@ -279,11 +271,10 @@ body {
 .btn {
     border: none; cursor: pointer;
     font-family: inherit; font-weight: 500;
-    transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 0.1s ease, background 0.15s ease, box-shadow 0.2s ease, color 0.2s ease;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
 }
-.btn:active { transform: scale(0.94); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
 .btn-rule {
@@ -1442,17 +1433,38 @@ body {
     padding: 8px 16px;
     border-radius: 12px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.12s, transform 0.1s;
     min-width: 60px;
     font-family: inherit;
 }
-.mobile-bottom-nav .nav-btn:active { background: rgba(255,255,255,0.06); }
+
 .mobile-bottom-nav .nav-btn svg { width: 24px; height: 24px; }
 .mobile-bottom-nav .nav-btn span { font-size: 10px; }
 .mobile-bottom-nav .nav-pass { color: var(--accent-green); }
 .mobile-bottom-nav .nav-fail { color: var(--accent-red); }
 .mobile-bottom-nav .nav-prev { color: var(--text-muted); }
 .mobile-bottom-nav .nav-download { color: var(--accent-blue); }
+
+.mobile-bottom-nav .nav-btn:active {
+    background: rgba(255,255,255,0.08) !important;
+    transform: scale(0.95) !important;
+}
+.mobile-bottom-nav .nav-fail:active {
+    background: rgba(248, 113, 113, 0.15) !important;
+}
+.mobile-bottom-nav .nav-pass:active {
+    background: rgba(74, 222, 128, 0.15) !important;
+}
+.mobile-bottom-nav .nav-download:active {
+    background: rgba(91, 141, 239, 0.15) !important;
+}
+.mobile-bottom-nav .nav-btn:active svg {
+    transform: scale(0.85);
+}
+.mobile-bottom-nav .nav-prev:active {
+    background: rgba(255,255,255,0.08) !important;
+}
+
 
 /* ========== Mobile ========== */
 @media screen and (max-width: 768px) {
@@ -1651,7 +1663,6 @@ body {
 
 /* Touch optimization */
 @media (hover: none) and (pointer: coarse) {
-    .btn:active { transform: scale(0.94); }
     .role-item:hover { background: transparent; }
     .nickname:hover { background: rgba(255,255,255,0.06); }
 }

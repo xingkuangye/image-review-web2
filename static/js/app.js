@@ -418,8 +418,7 @@ function setLoadingLabel(text) {
 
 // ========== 加载待审核图片（渐进加载：缩略图->原图）==========
 async function loadImage() {
-    const loading = document.getElementById('loadingIndicator');
-    const noImage = document.getElementById('noImageHint');
+    var noImage = document.getElementById('noImageHint');
     const image = document.getElementById('reviewImage');
 
     // 取消之前的下载
@@ -432,9 +431,8 @@ async function loadImage() {
         fullImageAbortController = null;
     }
 
-    // 显示骨架屏
+    // 显示加载中转圈
     showLoadingBar('加载图片...')
-    if (loading) loading.style.display = 'none';
     if (noImage) noImage.style.display = 'none';
     if (image) {
         image.style.display = 'none';
@@ -627,6 +625,7 @@ document.addEventListener('pointerdown', function(e) {
 // ========== 按钮视觉反馈（涟漪） ==========
 function flashButton(btnId) {
     var btn = document.getElementById(btnId);
+    if (btn && btn.offsetParent === null) { btn = null; }
     if (!btn) {
         var map = { passBtn: '.nav-pass', failBtn: '.nav-fail', prevBtn: '.nav-prev', downloadBtn: '.nav-download', skipBtn: '.nav-prev' };
         btn = document.querySelector('.mobile-bottom-nav ' + (map[btnId] || ''));
@@ -639,7 +638,7 @@ function createRipple(btn) {
     var old = document.querySelector('.ripple');
     if (old) old.remove();
     var rect = btn.getBoundingClientRect();
-    var size = Math.max(rect.width, rect.height) * 1.5;
+    var size = Math.max(rect.width, rect.height) * 1.8;
     var cx = window._lastPointerX !== undefined ? window._lastPointerX : rect.left + rect.width / 2;
     var cy = window._lastPointerY !== undefined ? window._lastPointerY : rect.top + rect.height / 2;
     var span = document.createElement('span');
@@ -653,6 +652,8 @@ function createRipple(btn) {
         span.style.background = 'rgba(248, 113, 113, 0.2)';
     } else if (btn.classList.contains('btn-download') || btn.classList.contains('nav-download')) {
         span.style.background = 'rgba(91, 141, 239, 0.2)';
+    } else if (btn.classList.contains('btn-prev') || btn.classList.contains('nav-prev') || btn.classList.contains('btn-skip')) {
+        span.style.background = 'rgba(255, 255, 255, 0.18)';
     }
     document.body.appendChild(span);
     setTimeout(function() { span.remove(); }, 500);
@@ -683,24 +684,26 @@ function preloadNextThumbnail() {
 // ========== 提交审核 ==========
 // 全局审核锁定：骨架屏显示时拒绝审核
 var reviewLocked = false;
+var reviewLockTimer = null;
 
 async function submitReview(status) {
     if (!currentImage || !currentUser) return;
     if (reviewLocked) return;
     reviewLocked = true;
+    // 安全兜底：10秒后强制解锁
+    if (reviewLockTimer) clearTimeout(reviewLockTimer);
+    reviewLockTimer = setTimeout(function() { reviewLocked = false; reviewLockTimer = null; }, 10000);
     flashButton(status === 'pass' ? 'passBtn' : status === 'fail' ? 'failBtn' : '');
     
     // 1. 旧图片 + 角色名消失
     var image = document.getElementById('reviewImage');
     var noImage = document.getElementById('noImageHint');
-    var loading = document.getElementById('loadingIndicator');
     if (image) {
         image.style.display = 'none';
         image.classList.remove('loaded');
         image.classList.remove('enter');
     }
     if (noImage) noImage.style.display = 'none';
-    if (loading) loading.style.display = 'none';
     var badge = document.getElementById('roleBadge');
     if (badge) badge.style.display = 'none';
     
@@ -849,12 +852,10 @@ async function prevImage() {
     preloadNextId = null;
     if (preloadBlobUrl) { URL.revokeObjectURL(preloadBlobUrl); preloadBlobUrl = null; }
     const image = document.getElementById('reviewImage');
-    const loading = document.getElementById('loadingIndicator');
-    const noImage = document.getElementById('noImageHint');
+    var noImage = document.getElementById('noImageHint');
 
     // 显示骨架屏
     showLoadingBar('加载图片...')
-    if (loading) loading.style.display = 'none';
     if (noImage) noImage.style.display = 'none';
     if (image) {
         image.style.display = 'none';
@@ -943,7 +944,24 @@ async function skipImage() {
     if (!currentImage || !currentUser) return;
     if (reviewLocked) return;
     reviewLocked = true;
+    if (reviewLockTimer) clearTimeout(reviewLockTimer);
+    reviewLockTimer = setTimeout(function() { reviewLocked = false; reviewLockTimer = null; }, 10000);
     flashButton('skipBtn');
+    
+    // 同submitReview: 隐藏图片+显示转圈
+    var image = document.getElementById('reviewImage');
+    var noImage = document.getElementById('noImageHint');
+    if (image) {
+        image.style.display = 'none';
+        image.classList.remove('loaded');
+        image.classList.remove('enter');
+    }
+    if (noImage) noImage.style.display = 'none';
+    var badge = document.getElementById('roleBadge');
+    if (badge) badge.style.display = 'none';
+    if (thumbnailAbortController) { thumbnailAbortController.abort(); thumbnailAbortController = null; }
+    if (fullImageAbortController) { fullImageAbortController.abort(); fullImageAbortController = null; }
+    showLoadingBar('跳过中...');
     
     try {
         await fetch(`/api/image/${currentImage.id}/review`, {
@@ -962,6 +980,7 @@ async function skipImage() {
         await loadImage();
         
     } catch (e) {
+        hideLoadingBar();
         console.error('跳过失败:', e);
     }
     reviewLocked = false;
@@ -975,11 +994,11 @@ function downloadImage() {
     var btn = document.getElementById('downloadBtn');
     var progress = document.getElementById('dlProgress');
     var text = document.getElementById('dlText');
-    var fileName = currentImage.path.split(/[/\\]/).pop();
+    var fileName = currentImage.path ? currentImage.path.split(/[/\\]/).pop() : 'image_' + currentImage.id + '.jpg';
     var url = '/api/image/' + currentImage.id + '/download';
     
     // Mobile: 浏览器原生下载，由浏览器跟踪进度
-    if (window.innerWidth <= 768 || !btn.offsetParent) {
+    if (window.innerWidth <= 768 || !btn) {
         var link = document.createElement('a');
         link.href = url;
         link.download = fileName;
@@ -1047,9 +1066,7 @@ function downloadImage() {
 
 // ========== 图片加载错误 ==========
 window.imageLoadError = function() {
-    var loading = document.getElementById('loadingIndicator');
     var noImage = document.getElementById('noImageHint');
-    if (loading) loading.style.display = 'none';
     if (noImage) noImage.style.display = 'block';
     hideLoadingBar();
 }
