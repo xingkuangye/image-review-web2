@@ -638,7 +638,7 @@ function createRipple(btn) {
     var old = document.querySelector('.ripple');
     if (old) old.remove();
     var rect = btn.getBoundingClientRect();
-    var size = Math.max(rect.width, rect.height) * 1.5;
+    var size = Math.max(rect.width, rect.height) * 1.8;
     var cx = window._lastPointerX !== undefined ? window._lastPointerX : rect.left + rect.width / 2;
     var cy = window._lastPointerY !== undefined ? window._lastPointerY : rect.top + rect.height / 2;
     var span = document.createElement('span');
@@ -653,7 +653,7 @@ function createRipple(btn) {
     } else if (btn.classList.contains('btn-download') || btn.classList.contains('nav-download')) {
         span.style.background = 'rgba(91, 141, 239, 0.2)';
     } else if (btn.classList.contains('btn-prev') || btn.classList.contains('nav-prev') || btn.classList.contains('btn-skip')) {
-        span.style.background = 'rgba(255, 255, 255, 0.1)';
+        span.style.background = 'rgba(255, 255, 255, 0.18)';
     }
     document.body.appendChild(span);
     setTimeout(function() { span.remove(); }, 500);
