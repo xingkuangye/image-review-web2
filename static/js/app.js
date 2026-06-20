@@ -431,9 +431,8 @@ async function loadImage() {
         fullImageAbortController = null;
     }
 
-    // 显示骨架屏
+    // 显示加载中转圈
     showLoadingBar('加载图片...')
-    if (loading) loading.style.display = 'none';
     if (noImage) noImage.style.display = 'none';
     if (image) {
         image.style.display = 'none';
@@ -855,7 +854,6 @@ async function prevImage() {
 
     // 显示骨架屏
     showLoadingBar('加载图片...')
-    if (loading) loading.style.display = 'none';
     if (noImage) noImage.style.display = 'none';
     if (image) {
         image.style.display = 'none';
@@ -1067,7 +1065,6 @@ function downloadImage() {
 // ========== 图片加载错误 ==========
 window.imageLoadError = function() {
     var noImage = document.getElementById('noImageHint');
-    if (loading) loading.style.display = 'none';
     if (noImage) noImage.style.display = 'block';
     hideLoadingBar();
 }
