@@ -238,7 +238,10 @@
         <div class="panel">
             <div class="panel-header">
                 <h3>系统健康检查</h3>
-                <button class="btn btn-outline" onclick="loadHealth()">刷新</button>
+                <div class="btn-group">
+                    <button class="btn btn-outline" onclick="restartServer()" style="color:var(--accent-red)">重启服务</button>
+                    <button class="btn btn-outline" onclick="loadHealth()">刷新</button>
+                </div>
             </div>
             <div id="healthContent" class="health-content">
                 <div class="health-loading">检查中...</div>

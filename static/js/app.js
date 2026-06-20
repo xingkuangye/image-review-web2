@@ -478,8 +478,8 @@ async function loadImage() {
                 preloadBlobUrl = null;
                 preloadNextId = null;
                 hideLoadingBar()
-                image.classList.remove('exit');
                 image.classList.add('visible');
+                image.classList.remove('exit');
                 image.classList.add('enter');
                 setTimeout(function() { image.classList.remove('enter'); }, 350);
                 
@@ -518,8 +518,8 @@ async function loadImage() {
                 
                 // 隐藏骨架屏
                 hideLoadingBar()
-                image.classList.remove('exit');
                 image.classList.add('visible');
+                image.classList.remove('exit');
                 image.classList.add('enter');
                 setTimeout(function() { image.classList.remove('enter'); }, 350);
                 
@@ -692,7 +692,6 @@ async function submitReview(status) {
     var image = document.getElementById('reviewImage');
     var noImage = document.getElementById('noImageHint');
     if (image && image.classList.contains('visible')) {
-        image.classList.remove('visible');
         image.classList.remove('enter');
         image.classList.add('exit');
     } else if (image) {
@@ -746,11 +745,11 @@ async function submitReview(status) {
             setTimeout(function() { hideLoadingBar(); }, 120);
             if (image) {
                 image.src = blobUrl;
-                // 移除模糊，触发 blurToClear 动画
-                image.classList.remove('exit');
+                // 先确保可见，再移除模糊，触发动画
                 image.classList.add('visible');
+                image.classList.remove('exit');
                 image.classList.add('enter');
-                setTimeout(function() { image.classList.remove('enter'); }, 350);
+                setTimeout(function() { image.classList.remove('enter'); }, 400);
                 if (image._thumbUrl) URL.revokeObjectURL(image._thumbUrl);
                 image._thumbUrl = blobUrl;
             }
@@ -883,8 +882,8 @@ async function prevImage() {
             image.src = thumbUrl;
             
             hideLoadingBar()
-            image.classList.remove('exit');
             image.classList.add('visible');
+            image.classList.remove('exit');
             image.classList.add('enter');
             setTimeout(function() { image.classList.remove('enter'); }, 350);
             

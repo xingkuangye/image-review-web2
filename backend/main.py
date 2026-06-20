@@ -1220,6 +1220,22 @@ async def admin_delete_backup(filename: str, x_admin_password: str = Header(None
         return {"success": True}
     raise HTTPException(status_code=400, detail="删除失败")
 
+# ============ 重启服务 ============
+
+@app.post("/api/admin/restart")
+async def admin_restart(x_admin_password: str = Header(None)):
+    """重启后端服务"""
+    verify_admin(x_admin_password)
+    import subprocess, os, sys
+    # 后台启动新进程替换当前进程
+    subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"],
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+    # 退出当前进程
+    os._exit(0)
+
+
 # ============ 页面路由 ============
 
 @app.get("/")

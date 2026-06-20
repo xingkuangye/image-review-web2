@@ -911,6 +911,18 @@ function formatTime(isoString) {
 }
 
 // ========== 系统健康检查 ==========
+async function restartServer() {
+    if (!confirm('确认要重启后端服务吗？\n页面将暂时无法访问，约等待3-5秒后自动恢复。')) return;
+    try {
+        await adminFetch('/api/admin/restart', { method: 'POST' });
+        alert('服务正在重启...\n请等待几秒后重新加载页面。');
+        setTimeout(function() { location.reload(); }, 3000);
+    } catch (e) {
+        // 重启后请求会中断，这是正常的
+        setTimeout(function() { location.reload(); }, 3000);
+    }
+}
+
 async function loadHealth() {
     const container = document.getElementById('healthContent');
     container.innerHTML = '<div class="health-loading">检查中...</div>';

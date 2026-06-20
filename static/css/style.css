@@ -126,13 +126,8 @@ body {
     align-items: center;
     justify-content: center;
     gap: 10px;
-    padding: 24px 32px;
-    background: rgba(0,0,0,0.45);
-    border-radius: 20px;
-    backdrop-filter: blur(12px);
     width: auto;
     height: auto;
-    min-width: 100px;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.2s ease-out, visibility 0s 0.2s;
@@ -595,17 +590,19 @@ body {
 }
 #reviewImage.exit {
     filter: blur(12px) brightness(0.7);
-    transform: scale(1.02);
-    transition: filter 0.3s ease-out, transform 0.3s ease-out;
+    transform: scale(1.05);
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: filter 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Transition from blurred current to new image */
 @keyframes blurToClear {
-    from { filter: blur(12px) brightness(0.7); transform: scale(1.02); opacity: 0.6; }
+    from { filter: blur(12px) brightness(0.7); transform: scale(1.05); opacity: 0.5; }
     to { filter: blur(0) brightness(1); transform: scale(1); opacity: 1; }
 }
 #reviewImage.enter {
-    animation: blurToClear 0.35s ease-out forwards;
+    animation: blurToClear 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* No image hint */
