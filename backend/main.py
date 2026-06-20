@@ -1092,6 +1092,48 @@ async def admin_health(x_admin_password: str = Header(None)):
     # ---- 系统信息 ----
     uptime_seconds = time.time() - SERVER_START_TIME
 
+    # ---- 内存信息 ----
+    memory = {}
+    try:
+        with open('/proc/meminfo') as f:
+            for line in f:
+                parts = line.split()
+                if parts[0] == 'MemTotal:':
+                    memory['total'] = int(parts[1]) * 1024
+                elif parts[0] == 'MemAvailable:':
+                    memory['available'] = int(parts[1]) * 1024
+                elif parts[0] == 'SwapTotal:':
+                    memory['swap_total'] = int(parts[1]) * 1024
+                elif parts[0] == 'SwapFree:':
+                    memory['swap_free'] = int(parts[1]) * 1024
+        memory['used'] = memory['total'] - memory['available']
+        memory['usage_percent'] = round(memory['used'] / memory['total'] * 100, 1) if memory['total'] > 0 else 0
+        if memory.get('swap_total', 0) > 0:
+            memory['swap_used'] = memory['swap_total'] - memory['swap_free']
+            memory['swap_usage_percent'] = round(memory['swap_used'] / memory['swap_total'] * 100, 1)
+        else:
+            memory['swap_used'] = 0
+            memory['swap_usage_percent'] = 0
+        memory['total_formatted'] = format_size(memory['total'])
+        memory['used_formatted'] = format_size(memory['used'])
+        memory['available_formatted'] = format_size(memory['available'])
+        memory['swap_total_formatted'] = format_size(memory.get('swap_total', 0))
+        memory['swap_used_formatted'] = format_size(memory.get('swap_used', 0))
+    except Exception:
+        memory = None
+
+    # ---- CPU 信息 ----
+    cpu = {}
+    try:
+        with open('/proc/loadavg') as f:
+            parts = f.read().split()
+            cpu['load_1min'] = float(parts[0])
+            cpu['load_5min'] = float(parts[1])
+            cpu['load_15min'] = float(parts[2])
+            cpu['cores'] = os.cpu_count() or 0
+    except Exception:
+        cpu = None
+
     return {
         "status": "ok" if db_ok else "error",
         "server": {
@@ -1129,6 +1171,8 @@ async def admin_health(x_admin_password: str = Header(None)):
         },
         "directories": dir_status,
         "network": network,
+        "memory": memory,
+        "cpu": cpu,
     }
 
 
