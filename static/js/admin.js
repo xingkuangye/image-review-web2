@@ -926,7 +926,6 @@ async function loadHealth() {
 }
 
 function renderHealth(container, data) {
-    // Badge helpers
     function badge(ok, okText, errText) {
         return ok
             ? '<span class="health-badge health-ok">' + (okText || '正常') + '</span>'
@@ -938,126 +937,95 @@ function renderHealth(container, data) {
         return '<span class="health-badge health-err">' + ms + 'ms</span>';
     }
 
-    const dbStatus = data.database.ok
-        ? '<span class="health-badge health-ok">正常</span>'
-        : '<span class="health-badge health-err">异常</span>';
+    var db = data.database;
+    var st = data.storage;
+    var mem = data.memory;
+    var cpu = data.cpu;
+    var net = data.network;
+    var imgs = data.images;
+    var dirs = data.directories;
+    var srv = data.server;
+    var dirLabels = {data:'数据', uploads:'上传', thumbnails:'缩略图', backups:'备份'};
 
-    const usage = data.storage.usage_percent;
-    let usageColor = 'health-ok';
-    if (usage > 85) usageColor = 'health-err';
-    else if (usage > 65) usageColor = 'health-warn';
+    var stUsage = st.usage_percent;
+    var stColor = 'health-ok';
+    if (stUsage > 85) stColor = 'health-err';
+    else if (stUsage > 65) stColor = 'health-warn';
 
-    const dirLabels = {data:'数据', uploads:'上传', thumbnails:'缩略图', backups:'备份'};
+    var memUsage = mem ? mem.usage_percent : 0;
+    var memColor = 'health-ok';
+    if (memUsage > 85) memColor = 'health-err';
+    else if (memUsage > 65) memColor = 'health-warn';
 
-    container.innerHTML = [
-        '<div class="health-grid">',
-            // 服务器
-            '<div class="health-card health-card-wide">',
-                '<div class="health-card-title">服务器</div>',
-                '<div class="health-card-body">',
-                    '<div class="health-row"><span class="health-label">主机名</span><span>' + escapeHtml(data.server.hostname) + '</span></div>',
-                    '<div class="health-row"><span class="health-label">系统</span><span>' + escapeHtml(data.server.platform) + '</span></div>',
-                    '<div class="health-row"><span class="health-label">Python</span><span>' + escapeHtml(data.server.python_version) + '</span></div>',
-                    '<div class="health-row"><span class="health-label">运行时间</span><span>' + escapeHtml(data.server.uptime_formatted) + '</span></div>',
-                '</div>',
-            '</div>',
+    var memHtml = mem ? [
+        '<div class="health-row"><span class="health-label">已用</span><span>' + mem.used_formatted + ' / ' + mem.total_formatted + '</span></div>',
+        '<div class="health-row"><span class="health-label">可用</span><span>' + mem.available_formatted + '</span></div>',
+        '<div class="health-progress-section"><div class="health-progress-bar"><div class="health-progress-fill ' + memColor + '" style="width:' + memUsage + '%"></div></div><span class="health-progress-text">' + memUsage + '%</span></div>',
+        (mem.swap_total > 0 ? '<div class="health-row"><span class="health-label">交换</span><span>' + mem.swap_used_formatted + ' / ' + mem.swap_total_formatted + '</span></div>' : '')
+    ].join('') : '<div class="health-card-body"><div class="health-row"><span>-</span></div></div>';
 
-            // 数据库
-            '<div class="health-card">',
-                '<div class="health-card-title">数据库 <span class="health-subtitle">SQLite ' + escapeHtml(data.database.version || '') + '</span></div>',
-                '<div class="health-card-body">',
-                    '<div class="health-row"><span class="health-label">状态</span><span>' + dbStatus + '</span></div>',
-                    '<div class="health-row"><span class="health-label">延迟</span><span>' + latBadge(data.database.latency_ms) + '</span></div>',
-                    '<div class="health-row"><span class="health-label">大小</span><span>' + data.database.size_formatted + '</span></div>',
-                '</div>',
-                '<div class="health-card-sub">',
-                    '<div class="health-stat"><span class="health-num">' + data.database.tables.images + '</span> 图片</div>',
-                    '<div class="health-stat"><span class="health-num">' + data.database.tables.reviews + '</span> 审核</div>',
-                    '<div class="health-stat"><span class="health-num">' + data.database.tables.users + '</span> 用户</div>',
-                    '<div class="health-stat"><span class="health-num">' + data.database.tables.roles + '</span> 角色</div>',
-                '</div>',
-            '</div>',
+    var cpuHtml = cpu ? [
+        '<div class="health-row"><span class="health-label">核心数</span><span>' + cpu.cores + ' 核</span></div>',
+        '<div class="health-row"><span class="health-label">负载 1min</span><span>' + cpu.load_1min + '</span></div>',
+        '<div class="health-row"><span class="health-label">负载 5min</span><span>' + cpu.load_5min + '</span></div>',
+        '<div class="health-row"><span class="health-label">负载 15min</span><span>' + cpu.load_15min + '</span></div>'
+    ].join('') : '<div class="health-card-body"><div class="health-row"><span>-</span></div></div>';
 
-            // 存储
-            '<div class="health-card">',
-                '<div class="health-card-title">存储</div>',
-                '<div class="health-card-body">',
-                    '<div class="health-row"><span class="health-label">已用</span><span>' + data.storage.used_formatted + ' / ' + data.storage.total_formatted + '</span></div>',
-                    '<div class="health-row"><span class="health-label">剩余</span><span>' + data.storage.free_formatted + '</span></div>',
-                    '<div class="health-progress-section">',
-                        '<div class="health-progress-bar"><div class="health-progress-fill ' + usageColor + '" style="width:' + usage + '%"></div></div>',
-                        '<span class="health-progress-text">' + usage + '%</span>',
-                    '</div>',
-                '</div>',
-            '</div>',
+    container.innerHTML = '<div class="health-grid">'
+        + '<div class="health-card health-card-wide"><div class="health-card-title">服务器</div><div class="health-card-body">'
+            + '<div class="health-row"><span class="health-label">主机名</span><span>' + escapeHtml(srv.hostname) + '</span></div>'
+            + '<div class="health-row"><span class="health-label">系统</span><span>' + escapeHtml(srv.platform) + '</span></div>'
+            + '<div class="health-row"><span class="health-label">Python</span><span>' + escapeHtml(srv.python_version) + '</span></div>'
+            + '<div class="health-row"><span class="health-label">运行时间</span><span>' + escapeHtml(srv.uptime_formatted) + '</span></div>'
+        + '</div></div>'
 
-            // 网络
-            '<div class="health-card">',
-                '<div class="health-card-title">网络</div>',
-                '<div class="health-card-body">',
-                    '<div class="health-row"><span class="health-label">DNS 解析</span><span>' + badge(data.network.dns, '正常', '异常') + '</span></div>',
-                    '<div class="health-row"><span class="health-label">外网连通</span><span>' + badge(data.network.connectivity, '正常', '异常') + '</span></div>',
-                '</div>',
-            '</div>',
+        + '<div class="health-card"><div class="health-card-title">数据库 <span class="health-subtitle">SQLite ' + escapeHtml(db.version || '') + '</span></div><div class="health-card-body">'
+            + '<div class="health-row"><span class="health-label">状态</span><span>' + (db.ok ? '<span class="health-badge health-ok">正常</span>' : '<span class="health-badge health-err">异常</span>') + '</span></div>'
+            + '<div class="health-row"><span class="health-label">延迟</span><span>' + latBadge(db.latency_ms) + '</span></div>'
+            + '<div class="health-row"><span class="health-label">大小</span><span>' + db.size_formatted + '</span></div>'
+        + '</div><div class="health-card-sub">'
+            + '<div class="health-stat"><span class="health-num">' + db.tables.images + '</span> 图片</div>'
+            + '<div class="health-stat"><span class="health-num">' + db.tables.reviews + '</span> 审核</div>'
+            + '<div class="health-stat"><span class="health-num">' + db.tables.users + '</span> 用户</div>'
+            + '<div class="health-stat"><span class="health-num">' + db.tables.roles + '</span> 角色</div>'
+        + '</div></div>'
 
-            // 图片完整性
-            '<div class="health-card">',
-                '<div class="health-card-title">图片完整性</div>',
-                '<div class="health-card-body">',
-                    '<div class="health-row"><span class="health-label">图片总数</span><span>' + data.images.total + '</span></div>'
-                    '<div class="health-row"><span class="health-label">缺失样本</span><span>' + (data.images.missing_sample > 0
-                        ? '<span class="health-badge health-err">' + data.images.missing_sample + ' 张</span>'
-                        : '<span class="health-badge health-ok">无</span>') + '</span></div>',
-                '</div>',
-            '</div>'
+        + '<div class="health-card"><div class="health-card-title">存储</div><div class="health-card-body">'
+            + '<div class="health-row"><span class="health-label">已用</span><span>' + st.used_formatted + ' / ' + st.total_formatted + '</span></div>'
+            + '<div class="health-row"><span class="health-label">剩余</span><span>' + st.free_formatted + '</span></div>'
+            + '<div class="health-progress-section"><div class="health-progress-bar"><div class="health-progress-fill ' + stColor + '" style="width:' + stUsage + '%"></div></div><span class="health-progress-text">' + stUsage + '%</span></div>'
+        + '</div></div>'
 
-            // 内存
-            '<div class="health-card">',
-                '<div class="health-card-title">内存</div>'
-                (data.memory ? [
-                    '<div class="health-card-body">',
-                    '<div class="health-row"><span class="health-label">已用</span><span>' + data.memory.used_formatted + ' / ' + data.memory.total_formatted + '</span></div>',
-                    '<div class="health-row"><span class="health-label">可用</span><span>' + data.memory.available_formatted + '</span></div>',
-                    '<div class="health-progress-section">',
-                        '<div class="health-progress-bar"><div class="health-progress-fill ' + (data.memory.usage_percent > 85 ? 'health-err' : data.memory.usage_percent > 65 ? 'health-warn' : 'health-ok') + '" style="width:' + data.memory.usage_percent + '%"></div></div>',
-                        '<span class="health-progress-text">' + data.memory.usage_percent + '%</span>',
-                    '</div>',
-                    (data.memory.swap_total > 0 ? '<div class="health-row"><span class="health-label">交换</span><span>' + data.memory.swap_used_formatted + ' / ' + data.memory.swap_total_formatted + '</span></div>' : '')
-                    '</div>'
-                ].join('') : '<div class="health-card-body"><div class="health-row"><span>-</span></div></div>') + ',
-            '</div>'
+        + '<div class="health-card"><div class="health-card-title">网络</div><div class="health-card-body">'
+            + '<div class="health-row"><span class="health-label">DNS 解析</span><span>' + badge(net.dns, '正常', '异常') + '</span></div>'
+            + '<div class="health-row"><span class="health-label">外网连通</span><span>' + badge(net.connectivity, '正常', '异常') + '</span></div>'
+        + '</div></div>'
 
-            // CPU
-            '<div class="health-card">',
-                '<div class="health-card-title">CPU</div>'
-                (data.cpu ? [
-                    '<div class="health-card-body">',
-                    '<div class="health-row"><span class="health-label">核心数</span><span>' + data.cpu.cores + ' 核</span></div>',
-                    '<div class="health-row"><span class="health-label">负载 1min</span><span>' + data.cpu.load_1min + '</span></div>',
-                    '<div class="health-row"><span class="health-label">负载 5min</span><span>' + data.cpu.load_5min + '</span></div>',
-                    '<div class="health-row"><span class="health-label">负载 15min</span><span>' + data.cpu.load_15min + '</span></div>',
-                    '</div>'
-                ].join('') : '<div class="health-card-body"><div class="health-row"><span>-</span></div></div>') + ',
-            '</div>'
+        + '<div class="health-card"><div class="health-card-title">图片完整性</div><div class="health-card-body">'
+            + '<div class="health-row"><span class="health-label">图片总数</span><span>' + imgs.total + '</span></div>'
+            + '<div class="health-row"><span class="health-label">缺失样本</span><span>' + (imgs.missing_sample > 0
+                ? '<span class="health-badge health-err">' + imgs.missing_sample + ' 张</span>'
+                : '<span class="health-badge health-ok">无</span>') + '</span></div>'
+        + '</div></div>'
 
-            // 目录
-            '<div class="health-card health-card-wide">',
-                '<div class="health-card-title">目录状态</div>',
-                '<div class="health-dir-grid">' +
-                    Object.entries(data.directories).map(function(kv) {
-                        var name = kv[0], dir = kv[1];
-                        var ok = dir.exists && dir.writable;
-                        var st = ok ? '<span class="health-badge health-ok">正常</span>'
-                                    : '<span class="health-badge health-err">异常</span>';
-                        return '<div class="health-dir-item">' +
-                            '<div class="health-row"><span class="health-label">' + (dirLabels[name] || name) + '</span><span>' + st + '</span></div>' +
-                            '<div class="health-dir-path">' + escapeHtml(dir.path) + '</div>' +
-                        '</div>';
-                    }).join('')
-                + '</div>',
-            '</div>',
-        '</div>'
-    ].join('\n');
+        + '<div class="health-card"><div class="health-card-title">内存</div>'
+            + (mem ? '<div class="health-card-body">' + memHtml + '</div>' : memHtml)
+        + '</div>'
+
+        + '<div class="health-card"><div class="health-card-title">CPU</div>'
+            + (cpu ? '<div class="health-card-body">' + cpuHtml + '</div>' : cpuHtml)
+        + '</div>'
+
+        + '<div class="health-card health-card-wide"><div class="health-card-title">目录状态</div>'
+        + '<div class="health-dir-grid">'
+            + Object.entries(dirs).map(function(kv) {
+                var name = kv[0], dir = kv[1];
+                var ok = dir.exists && dir.writable;
+                var st = ok ? '<span class="health-badge health-ok">正常</span>' : '<span class="health-badge health-err">异常</span>';
+                return '<div class="health-dir-item"><div class="health-row"><span class="health-label">' + (dirLabels[name] || name) + '</span><span>' + st + '</span></div><div class="health-dir-path">' + escapeHtml(dir.path) + '</div></div>';
+            }).join('')
+        + '</div></div>'
+    + '</div>';
 }
 
 // ========== 点击模态框外部关闭 ==========
