@@ -547,6 +547,9 @@ body {
 
 .user-stats { text-align: center; margin-right: 4px; }
 .user-stats .count { font-size: 16px; font-weight: 600; display: block; }
+
+/* Credibility badge */
+.user-cred { text-align: center; margin: 0 8px; min-width: 48px; }
 .user-stats .label { font-size: 11px; color: var(--text-muted); }
 
 .user-last-active { text-align: center; min-width: 100px; }
@@ -881,7 +884,7 @@ input[type="time"] { color-scheme: dark; }
 
     .user-item { padding: 12px 16px; }
     .user-avatar { width: 32px; height: 32px; font-size: 12px; }
-    .user-stats, .user-last-active { display: none; }
+    .user-stats, .user-last-active, .user-cred { display: none; }
     .user-status { width: 100%; margin-right: 0; }
     .user-actions { width: 100%; justify-content: flex-end; }
 

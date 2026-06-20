@@ -471,7 +471,75 @@ def submit_review(image_id: int, user_id: str, status: str):
         (image_id, user_id, status, datetime.now().isoformat())
     )
     conn.commit()
+
+    # 检查该图片是否已有3票（非skip）
+    cursor.execute('''
+        SELECT COUNT(*) FROM reviews
+        WHERE image_id = ? AND status IN ('pass', 'fail')
+    ''', (image_id,))
+    vote_count = cursor.fetchone()[0]
+
+    if vote_count >= REQUIRED_VOTES:
+        cursor.execute('''
+            SELECT status FROM reviews
+            WHERE image_id = ? AND status IN ('pass', 'fail')
+        ''', (image_id,))
+        votes_list = [row[0] for row in cursor.fetchall()]
+        pass_count = votes_list.count('pass')
+        final_result = 'pass' if pass_count >= 2 else 'fail'
+
+        cursor.execute('''
+            SELECT user_id, status FROM reviews
+            WHERE image_id = ? AND status IN ('pass', 'fail')
+        ''', (image_id,))
+        for uid, vote in cursor.fetchall():
+            agrees = 1 if vote == final_result else 0
+            cursor.execute('''
+                UPDATE users SET
+                    credibility_agrees = credibility_agrees + ?,
+                    credibility_total = credibility_total + 1,
+                    credibility_score = CAST(credibility_agrees + ? + 1 AS REAL) / (credibility_total + 1 + 2)
+                WHERE id = ?
+            ''', (agrees, agrees, uid))
+
+    conn.commit()
     conn.close()
+
+def get_user_credibility(user_id: str) -> dict:
+    """获取单个用户可信度"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT credibility_score, credibility_agrees, credibility_total FROM users WHERE id = ?",
+        (user_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {"score": row[0], "agrees": row[1] or 0, "total": row[2] or 0}
+    return {"score": None, "agrees": 0, "total": 0}
+
+
+def get_all_credibility() -> list:
+    """获取所有用户可信度"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, nickname, credibility_score, credibility_agrees, credibility_total, is_banned FROM users ORDER BY credibility_score DESC NULLS LAST"
+    )
+    users = []
+    for row in cursor.fetchall():
+        users.append({
+            "user_id": row[0],
+            "nickname": row[1],
+            "score": row[2],
+            "agrees": row[3] or 0,
+            "total": row[4] or 0,
+            "is_banned": row[5]
+        })
+    conn.close()
+    return users
+
 
 def get_user_reviews(user_id: str) -> List[dict]:
     """获取用户的审核记录"""

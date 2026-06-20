@@ -146,6 +146,8 @@ def backup_scheduler():
 async def startup():
     global admin_password, scheduler_running
     init_db()
+    from backend.database import migrate_add_credibility
+    migrate_add_credibility()
     admin_password = get_admin_password()
     # 安全：不打印密码到日志和终端
     print(f"\n{'='*50}")
@@ -678,6 +680,23 @@ async def admin_get_users(sort_by: str = "id", x_admin_password: str = Header(No
     """获取所有用户"""
     verify_admin(x_admin_password)
     return get_all_users(sort_by)
+
+@app.post("/api/admin/credibility/recalc")
+async def admin_recalc_credibility(x_admin_password: str = Header(None)):
+    """全量重新计算所有用户可信度"""
+    verify_admin(x_admin_password)
+    from backend.database import update_all_credibility
+    update_all_credibility()
+    return {"success": True, "message": "可信度已重新计算"}
+
+
+@app.get("/api/admin/credibility")
+async def admin_credibility(x_admin_password: str = Header(None)):
+    """获取所有用户可信度"""
+    verify_admin(x_admin_password)
+    from backend.services import get_all_credibility
+    return {"users": get_all_credibility()}
+
 
 @app.get("/api/admin/users/daily-stats")
 async def admin_users_daily_stats(x_admin_password: str = Header(None)):
