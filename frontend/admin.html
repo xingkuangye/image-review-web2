@@ -96,7 +96,6 @@
                 <div class="panel-header">
                     <h3>用户列表</h3>
                     <div class="sort-controls">
-                        <button class="btn btn-outline btn-sm" onclick="recalcCredibility()">重算可信度</button>
                         <label>排序</label>
                         <select id="userSort" class="select" onchange="loadUsers()">
                             <option value="id">按ID</option>
@@ -222,11 +221,6 @@
                         <label>审核要求（Markdown）</label>
                         <textarea id="settingReviewRule" class="input textarea" placeholder="支持 Markdown 格式" rows="10"></textarea>
                         <span class="hint-text">支持 **粗体**、*斜体*、# 标题、- 列表等语法</span>
-                    </div>
-                    <div class="form-group">
-                        <label>网站公告（支持 Markdown）</label>
-                        <textarea id="settingNotice" class="input textarea" placeholder="公告内容，留空则不显示" rows="6"></textarea>
-                        <span class="hint-text">首次进入或公告内容更新时会自动弹出，可在顶部「公告」按钮再次查看</span>
                     </div>
                     <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
                     <p id="settingsMsg" class="success-msg" style="display:none;">保存成功</p>

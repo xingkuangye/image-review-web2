@@ -398,7 +398,7 @@ async function loadStats() {
 // ========== 加载进度条控制 ==========
 function showLoadingBar(text) {
     var el = document.getElementById('loadingIndicator2');
-    if (el) el.style.display = 'flex';
+    if (el) el.classList.add('visible');
     var txt = document.getElementById('loadingText');
     if (txt) txt.textContent = text || '';
     var badge = document.getElementById('roleBadge');
@@ -406,7 +406,7 @@ function showLoadingBar(text) {
 }
 function hideLoadingBar() {
     var el = document.getElementById('loadingIndicator2');
-    if (el) el.style.display = 'none';
+    if (el) el.classList.remove('visible');
     updateRoleBadge();
 }
 function setLoadingLabel(text) {
@@ -435,9 +435,8 @@ async function loadImage() {
     showLoadingBar('加载图片...')
     if (noImage) noImage.style.display = 'none';
     if (image) {
-        image.style.display = 'none';
-        image.classList.remove('loaded');
-        image.style.opacity = '0';
+        image.classList.remove('visible');
+        image.classList.remove('exit');
     }
 
     // 确保用户已初始化
@@ -483,11 +482,8 @@ async function loadImage() {
                 preloadBlobUrl = null;
                 preloadNextId = null;
                 hideLoadingBar()
-                image.style.display = 'block';
-                image.style.opacity = '1';
-                image.classList.add('loaded');
-                image.classList.add('enter');
-                setTimeout(function() { image.classList.remove('enter'); }, 300);
+                image.classList.remove('exit');
+                image.classList.add('visible');
                 
                 // 后台加载原图
                 fullImageAbortController = new AbortController();
@@ -524,11 +520,8 @@ async function loadImage() {
                 
                 // 隐藏骨架屏
                 hideLoadingBar()
-                image.style.display = 'block';
-                image.style.opacity = '1';
-                image.classList.add('loaded');
-                image.classList.add('enter');
-                setTimeout(function() { image.classList.remove('enter'); }, 300);
+                image.classList.remove('exit');
+                image.classList.add('visible');
                 
                 // 清理旧的 blob URL
                 if (image._thumbUrl) {
@@ -695,13 +688,14 @@ async function submitReview(status) {
     reviewLockTimer = setTimeout(function() { reviewLocked = false; reviewLockTimer = null; }, 10000);
     flashButton(status === 'pass' ? 'passBtn' : status === 'fail' ? 'failBtn' : '');
     
-    // 1. 旧图片 + 角色名消失
+    // 1. 旧图片退场 + 角色名消失
     var image = document.getElementById('reviewImage');
     var noImage = document.getElementById('noImageHint');
-    if (image) {
-        image.style.display = 'none';
-        image.classList.remove('loaded');
-        image.classList.remove('enter');
+    if (image && image.classList.contains('visible')) {
+        image.classList.remove('visible');
+        image.classList.add('exit');
+        await new Promise(function(r) { setTimeout(r, 150); });
+        image.classList.remove('exit');
     }
     if (noImage) noImage.style.display = 'none';
     var badge = document.getElementById('roleBadge');
@@ -749,11 +743,8 @@ async function submitReview(status) {
             setTimeout(function() { hideLoadingBar(); }, 120);
             if (image) {
                 image.src = blobUrl;
-                image.style.display = 'block';
-                image.style.opacity = '1';
-                image.classList.add('loaded');
-                image.classList.add('enter');
-                setTimeout(function() { image.classList.remove('enter'); }, 300);
+                image.classList.remove('exit');
+                image.classList.add('visible');
                 if (image._thumbUrl) URL.revokeObjectURL(image._thumbUrl);
                 image._thumbUrl = blobUrl;
             }
@@ -858,9 +849,8 @@ async function prevImage() {
     showLoadingBar('加载图片...')
     if (noImage) noImage.style.display = 'none';
     if (image) {
-        image.style.display = 'none';
-        image.classList.remove('loaded');
-        image.style.opacity = '0';
+        image.classList.remove('visible');
+        image.classList.remove('exit');
     }
 
     if (image) {
@@ -887,11 +877,8 @@ async function prevImage() {
             image.src = thumbUrl;
             
             hideLoadingBar()
-            image.style.display = 'block';
-            image.style.opacity = '1';
-            image.classList.add('loaded');
-            image.classList.add('enter');
-            setTimeout(function() { image.classList.remove('enter'); }, 300);
+            image.classList.remove('exit');
+            image.classList.add('visible');
             
             if (image._thumbUrl) {
                 URL.revokeObjectURL(image._thumbUrl);
@@ -952,9 +939,8 @@ async function skipImage() {
     var image = document.getElementById('reviewImage');
     var noImage = document.getElementById('noImageHint');
     if (image) {
-        image.style.display = 'none';
-        image.classList.remove('loaded');
-        image.classList.remove('enter');
+        image.classList.remove('visible');
+        image.classList.remove('exit');
     }
     if (noImage) noImage.style.display = 'none';
     var badge = document.getElementById('roleBadge');
@@ -1066,6 +1052,8 @@ function downloadImage() {
 
 // ========== 图片加载错误 ==========
 window.imageLoadError = function() {
+    var image = document.getElementById('reviewImage');
+    if (image) image.classList.remove('visible');
     var noImage = document.getElementById('noImageHint');
     if (noImage) noImage.style.display = 'block';
     hideLoadingBar();
@@ -1076,7 +1064,7 @@ function updateRoleBadge() {
     const badge = document.getElementById('roleBadge');
     if (!badge) return;
     var indicator = document.getElementById('loadingIndicator2');
-    var isLoading = indicator && indicator.style.display && indicator.style.display !== 'none';
+    var isLoading = indicator && indicator.classList.contains('visible');
     if (currentImage && currentImage.role_name && !isLoading) {
         badge.textContent = currentImage.role_name;
         badge.style.display = '';

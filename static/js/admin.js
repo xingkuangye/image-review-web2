@@ -184,7 +184,6 @@ async function loadSettings() {
         document.getElementById('settingTitle').value = data.title || '';
         document.getElementById('settingIcon').value = data.icon || '';
         document.getElementById('settingReviewRule').value = data.review_rule || '';
-        document.getElementById('settingNotice').value = data.notice || '';
     } catch (e) {
         console.error('加载设置失败:', e);
     }
@@ -194,7 +193,6 @@ async function saveSettings() {
     const title = document.getElementById('settingTitle').value.trim();
     const icon = document.getElementById('settingIcon').value.trim();
     const reviewRule = document.getElementById('settingReviewRule').value.trim();
-    const notice = document.getElementById('settingNotice').value.trim();
     const msgEl = document.getElementById('settingsMsg');
     
     try {
@@ -214,15 +212,6 @@ async function saveSettings() {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
             body: 'icon=' + encodeURIComponent(icon)
-        });
-        
-        // 保存公告
-        await adminFetch('/api/admin/settings/notice', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: 'content=' + encodeURIComponent(notice)
         });
         
         // 保存审核规则
@@ -585,32 +574,13 @@ async function loadUsersChart() {
 }
 
 // ========== 用户管理 ==========
-async function recalcCredibility() {
-    if (!confirm('重新计算所有用户可信度？\n此操作可能需要几秒钟。')) return;
-    try {
-        await adminFetch('/api/admin/credibility/recalc', { method: 'POST' });
-        alert('可信度已重新计算');
-        loadUsers();
-    } catch (e) {
-        alert('计算失败');
-    }
-}
-
 async function loadUsers() {
     loadUsersChart();
     const sortBy = document.getElementById('userSort').value;
     
     try {
-        const [usersRes, credRes] = await Promise.all([
-            adminFetch(`/api/admin/users?sort_by=${sortBy}`),
-            adminFetch('/api/admin/credibility')
-        ]);
-        const users = await usersRes.json();
-        const credData = await credRes.json();
-        var credMap = {};
-        if (credData && credData.users) {
-            credData.users.forEach(function(c) { credMap[c.user_id] = c; });
-        }
+        const response = await adminFetch(`/api/admin/users?sort_by=${sortBy}`);
+        const users = await response.json();
         
         const userList = document.getElementById('userList');
         
@@ -629,9 +599,6 @@ async function loadUsers() {
                 <div class="user-stats">
                     <div class="count">${user.total_reviews}</div>
                     <div class="label">审核数</div>
-                </div>
-                <div class="user-cred">
-                    <div class="cred-badge">${formatCred(credMap[user.id])}</div>
                 </div>
                 <div class="user-last-active">
                     <div class="time">${formatTime(user.last_active)}</div>
@@ -1001,44 +968,15 @@ function renderHealth(container, data) {
             '</div>',
 
             // 图片完整性
-            '<div class="health-card">'
-                '<div class="health-card-title">图片完整性</div>'
-                '<div class="health-card-body">'
-                    '<div class="health-row"><span class="health-label">图片总数</span><span>' + data.images.total + '</span></div>'
+            '<div class="health-card">',
+                '<div class="health-card-title">图片完整性</div>',
+                '<div class="health-card-body">',
+                    '<div class="health-row"><span class="health-label">图片总数</span><span>' + data.images.total + '</span></div>',
                     '<div class="health-row"><span class="health-label">缺失样本</span><span>' + (data.images.missing_sample > 0
                         ? '<span class="health-badge health-err">' + data.images.missing_sample + ' 张</span>'
-                        : '<span class="health-badge health-ok">无</span>') + '</span></div>'
-                '</div>'
-            '</div>'
-
-            // 内存
-            '<div class="health-card">'
-                '<div class="health-card-title">内存</div>'
-                (data.memory ? [
-                    '<div class="health-card-body">'
-                    '<div class="health-row"><span class="health-label">已用</span><span>' + data.memory.used_formatted + ' / ' + data.memory.total_formatted + '</span></div>'
-                    '<div class="health-row"><span class="health-label">可用</span><span>' + data.memory.available_formatted + '</span></div>'
-                    '<div class="health-progress-section">'
-                        '<div class="health-progress-bar"><div class="health-progress-fill ' + (data.memory.usage_percent > 85 ? 'health-err' : data.memory.usage_percent > 65 ? 'health-warn' : 'health-ok') + '" style="width:' + data.memory.usage_percent + '%"></div></div>'
-                        '<span class="health-progress-text">' + data.memory.usage_percent + '%</span>'
-                    '</div>'
-                    (data.memory.swap_total > 0 ? '<div class="health-row"><span class="health-label">交换</span><span>' + data.memory.swap_used_formatted + ' / ' + data.memory.swap_total_formatted + '</span></div>' : '')
-                    '</div>'
-                ].join('') : '<div class="health-card-body"><div class="health-row"><span>-</span></div></div>') + '
-            '</div>'
-
-            // CPU
-            '<div class="health-card">'
-                '<div class="health-card-title">CPU</div>'
-                (data.cpu ? [
-                    '<div class="health-card-body">'
-                    '<div class="health-row"><span class="health-label">核心数</span><span>' + data.cpu.cores + ' 核</span></div>'
-                    '<div class="health-row"><span class="health-label">负载 1min</span><span>' + data.cpu.load_1min + '</span></div>'
-                    '<div class="health-row"><span class="health-label">负载 5min</span><span>' + data.cpu.load_5min + '</span></div>'
-                    '<div class="health-row"><span class="health-label">负载 15min</span><span>' + data.cpu.load_15min + '</span></div>'
-                    '</div>'
-                ].join('') : '<div class="health-card-body"><div class="health-row"><span>-</span></div></div>') + '
-            '</div>'
+                        : '<span class="health-badge health-ok">无</span>') + '</span></div>',
+                '</div>',
+            '</div>',
 
             // 目录
             '<div class="health-card health-card-wide">',
@@ -1243,13 +1181,6 @@ async function deleteBackupFile(filename) {
         console.error('删除失败:', e);
         alert('删除失败');
     }
-}
-
-function formatCred(cred) {
-    if (!cred || !cred.total || cred.total === 0) return '--';
-    var pct = Math.round(cred.score * 100);
-    var color = pct >= 80 ? 'var(--accent-green)' : pct >= 60 ? 'var(--accent-amber)' : 'var(--accent-red)';
-    return '<span style="color:' + color + ';font-weight:600;font-size:14px;">' + pct + '%</span><span style="font-size:10px;color:var(--text-muted);display:block;">' + cred.agrees + '/' + cred.total + '</span>';
 }
 
 function formatBackupTime(time) {
