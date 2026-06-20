@@ -1001,15 +1001,44 @@ function renderHealth(container, data) {
             '</div>',
 
             // 图片完整性
-            '<div class="health-card">',
-                '<div class="health-card-title">图片完整性</div>',
-                '<div class="health-card-body">',
-                    '<div class="health-row"><span class="health-label">图片总数</span><span>' + data.images.total + '</span></div>',
+            '<div class="health-card">'
+                '<div class="health-card-title">图片完整性</div>'
+                '<div class="health-card-body">'
+                    '<div class="health-row"><span class="health-label">图片总数</span><span>' + data.images.total + '</span></div>'
                     '<div class="health-row"><span class="health-label">缺失样本</span><span>' + (data.images.missing_sample > 0
                         ? '<span class="health-badge health-err">' + data.images.missing_sample + ' 张</span>'
-                        : '<span class="health-badge health-ok">无</span>') + '</span></div>',
-                '</div>',
-            '</div>',
+                        : '<span class="health-badge health-ok">无</span>') + '</span></div>'
+                '</div>'
+            '</div>'
+
+            // 内存
+            '<div class="health-card">'
+                '<div class="health-card-title">内存</div>'
+                (data.memory ? [
+                    '<div class="health-card-body">'
+                    '<div class="health-row"><span class="health-label">已用</span><span>' + data.memory.used_formatted + ' / ' + data.memory.total_formatted + '</span></div>'
+                    '<div class="health-row"><span class="health-label">可用</span><span>' + data.memory.available_formatted + '</span></div>'
+                    '<div class="health-progress-section">'
+                        '<div class="health-progress-bar"><div class="health-progress-fill ' + (data.memory.usage_percent > 85 ? 'health-err' : data.memory.usage_percent > 65 ? 'health-warn' : 'health-ok') + '" style="width:' + data.memory.usage_percent + '%"></div></div>'
+                        '<span class="health-progress-text">' + data.memory.usage_percent + '%</span>'
+                    '</div>'
+                    (data.memory.swap_total > 0 ? '<div class="health-row"><span class="health-label">交换</span><span>' + data.memory.swap_used_formatted + ' / ' + data.memory.swap_total_formatted + '</span></div>' : '')
+                    '</div>'
+                ].join('') : '<div class="health-card-body"><div class="health-row"><span>-</span></div></div>') + '
+            '</div>'
+
+            // CPU
+            '<div class="health-card">'
+                '<div class="health-card-title">CPU</div>'
+                (data.cpu ? [
+                    '<div class="health-card-body">'
+                    '<div class="health-row"><span class="health-label">核心数</span><span>' + data.cpu.cores + ' 核</span></div>'
+                    '<div class="health-row"><span class="health-label">负载 1min</span><span>' + data.cpu.load_1min + '</span></div>'
+                    '<div class="health-row"><span class="health-label">负载 5min</span><span>' + data.cpu.load_5min + '</span></div>'
+                    '<div class="health-row"><span class="health-label">负载 15min</span><span>' + data.cpu.load_15min + '</span></div>'
+                    '</div>'
+                ].join('') : '<div class="health-card-body"><div class="health-row"><span>-</span></div></div>') + '
+            '</div>'
 
             // 目录
             '<div class="health-card health-card-wide">',
