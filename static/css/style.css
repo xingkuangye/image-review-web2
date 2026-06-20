@@ -594,10 +594,18 @@ body {
     transition: opacity 0.35s ease-out, visibility 0s 0s, filter 0.35s ease-out, transform 0.35s ease-out;
 }
 #reviewImage.exit {
-    opacity: 0;
-    filter: blur(10px);
+    filter: blur(12px) brightness(0.7);
     transform: scale(1.02);
-    transition: opacity 0.25s ease-out, filter 0.25s ease-out, transform 0.25s ease-out, visibility 0s 0.25s;
+    transition: filter 0.3s ease-out, transform 0.3s ease-out;
+}
+
+/* Transition from blurred current to new image */
+@keyframes blurToClear {
+    from { filter: blur(12px) brightness(0.7); transform: scale(1.02); opacity: 0.6; }
+    to { filter: blur(0) brightness(1); transform: scale(1); opacity: 1; }
+}
+#reviewImage.enter {
+    animation: blurToClear 0.35s ease-out forwards;
 }
 
 /* No image hint */

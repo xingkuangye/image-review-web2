@@ -431,13 +431,9 @@ async function loadImage() {
         fullImageAbortController = null;
     }
 
-    // 显示加载中转圈
+    // 显示加载中转圈（覆盖在模糊图片上）
     showLoadingBar('加载图片...')
     if (noImage) noImage.style.display = 'none';
-    if (image) {
-        image.classList.remove('visible');
-        image.classList.remove('exit');
-    }
 
     // 确保用户已初始化
     if (!currentUser || !currentUser.id) {
@@ -484,7 +480,8 @@ async function loadImage() {
                 hideLoadingBar()
                 image.classList.remove('exit');
                 image.classList.add('visible');
-                setTimeout(function() { image.classList.remove('enter'); }, 300);
+                image.classList.add('enter');
+                setTimeout(function() { image.classList.remove('enter'); }, 350);
                 
                 // 后台加载原图
                 fullImageAbortController = new AbortController();
@@ -523,7 +520,8 @@ async function loadImage() {
                 hideLoadingBar()
                 image.classList.remove('exit');
                 image.classList.add('visible');
-                setTimeout(function() { image.classList.remove('enter'); }, 300);
+                image.classList.add('enter');
+                setTimeout(function() { image.classList.remove('enter'); }, 350);
                 
                 // 清理旧的 blob URL
                 if (image._thumbUrl) {
@@ -690,20 +688,19 @@ async function submitReview(status) {
     reviewLockTimer = setTimeout(function() { reviewLocked = false; reviewLockTimer = null; }, 10000);
     flashButton(status === 'pass' ? 'passBtn' : status === 'fail' ? 'failBtn' : '');
     
-    // 1. 旧图片 + 角色名消失
+    // 1. 模糊当前图片 + 角色名消失
     var image = document.getElementById('reviewImage');
     var noImage = document.getElementById('noImageHint');
     if (image && image.classList.contains('visible')) {
         image.classList.remove('visible');
+        image.classList.remove('enter');
         image.classList.add('exit');
-        // 短暂延迟让退场动画播放
-        var img = image;
-        setTimeout(function() { img.classList.remove('exit'); }, 200);
     } else if (image) {
-        image.classList.remove('visible');
-        image.classList.remove('exit');
+        image.classList.add('exit');
     }
     if (noImage) noImage.style.display = 'none';
+    var badge = document.getElementById('roleBadge');
+    if (badge) badge.style.display = 'none';
     var badge = document.getElementById('roleBadge');
     if (badge) badge.style.display = 'none';
     
@@ -743,15 +740,17 @@ async function submitReview(status) {
             currentImage = { id: nextId, role_name: '' };
             currentImageId = nextId;
             
-            // 6. 先更新文案再延迟隐藏，让用户看到状态变化
+            // 6. 设置新图片（当前图片保持在模糊状态，转圈覆盖其上）
             setLoadingLabel('加载图片信息...');
-            // 稍微延迟隐藏转圈，让文案可见
+            // 短暂延迟后隐藏转圈，新图片从模糊变清晰
             setTimeout(function() { hideLoadingBar(); }, 120);
             if (image) {
                 image.src = blobUrl;
+                // 移除模糊，触发 blurToClear 动画
                 image.classList.remove('exit');
                 image.classList.add('visible');
-                setTimeout(function() { image.classList.remove('enter'); }, 300);
+                image.classList.add('enter');
+                setTimeout(function() { image.classList.remove('enter'); }, 350);
                 if (image._thumbUrl) URL.revokeObjectURL(image._thumbUrl);
                 image._thumbUrl = blobUrl;
             }
@@ -886,7 +885,8 @@ async function prevImage() {
             hideLoadingBar()
             image.classList.remove('exit');
             image.classList.add('visible');
-            setTimeout(function() { image.classList.remove('enter'); }, 300);
+            image.classList.add('enter');
+            setTimeout(function() { image.classList.remove('enter'); }, 350);
             
             if (image._thumbUrl) {
                 URL.revokeObjectURL(image._thumbUrl);
