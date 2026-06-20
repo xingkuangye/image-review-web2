@@ -28,7 +28,10 @@ def init_db():
             nickname TEXT NOT NULL DEFAULT '匿名用户',
             created_at TEXT NOT NULL,
             last_active TEXT NOT NULL,
-            is_banned INTEGER DEFAULT 0
+            is_banned INTEGER DEFAULT 0,
+            credibility_score REAL,
+            credibility_agrees INTEGER DEFAULT 0,
+            credibility_total INTEGER DEFAULT 0
         )
     ''')
     
@@ -87,3 +90,63 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+
+def migrate_add_credibility():
+    """为已有数据库添加可信度字段"""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN credibility_score REAL")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN credibility_agrees INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN credibility_total INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    conn.commit()
+    conn.close()
+
+
+def update_all_credibility():
+    """全量重新计算所有用户可信度"""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 找到已完成3票且有明确结果的图片
+    cursor.execute('''
+        SELECT image_id,
+               CASE WHEN SUM(CASE WHEN status = 'pass' THEN 1 ELSE 0 END) >= 2
+                    THEN 'pass' ELSE 'fail' END AS final_result
+        FROM reviews
+        WHERE status IN ('pass', 'fail')
+        GROUP BY image_id
+        HAVING COUNT(*) = 3
+    ''')
+    completed = {(row[0], row[1]) for row in cursor.fetchall()}
+
+    # 初始化所有用户
+    cursor.execute("UPDATE users SET credibility_score = NULL, credibility_agrees = 0, credibility_total = 0")
+
+    for image_id, final_result in completed:
+        cursor.execute('''
+            SELECT user_id, status FROM reviews
+            WHERE image_id = ? AND status IN ('pass', 'fail')
+        ''', (image_id,))
+        for user_id, vote in cursor.fetchall():
+            agrees = 1 if vote == final_result else 0
+            cursor.execute('''
+                UPDATE users SET
+                    credibility_agrees = credibility_agrees + ?,
+                    credibility_total = credibility_total + 1,
+                    credibility_score = CAST(credibility_agrees + ? + 1 AS REAL) / (credibility_total + 1 + 2)
+                WHERE id = ?
+            ''', (agrees, agrees, user_id))
+
+    conn.commit()
+    conn.close()
+
