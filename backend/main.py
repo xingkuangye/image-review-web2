@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional, Dict
 from collections import deque
 
-from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form, Response, Query
+from fastapi import FastAPI, HTTPException, Header, Cookie, UploadFile, File, Form, Response, Query
 from fastapi.responses import StreamingResponse
 from PIL import Image
 import io
@@ -210,7 +210,7 @@ def _make_token_response(user):
             value=user.user_token,
             max_age=365*24*60*60,
             path="/",
-            httponly=True,
+            httponly=False,
             samesite="lax",
             secure=secure,
         )
@@ -226,9 +226,13 @@ async def init_user():
     return _make_token_response(user)
 
 @app.get("/api/user/me")
-async def get_user_by_token(x_user_token: str = Header(None)):
-    """通过令牌获取用户信息（安全方式，刷新Cookie）"""
-    if not x_user_token:
+async def get_user_by_token(
+    x_user_token: str = Header(None),
+    review_user_token: str = Cookie(None),
+):
+    """通过令牌获取用户信息（从Header或Cookie）"""
+    token = x_user_token or review_user_token
+    if not token:
         raise HTTPException(status_code=400, detail="缺少令牌")
     conn = get_db()
     cursor = conn.cursor()
