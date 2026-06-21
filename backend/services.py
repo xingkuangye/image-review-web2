@@ -389,7 +389,7 @@ def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optiona
     cursor = conn.cursor()
     
     # 使用 NOT EXISTS 替代 NOT IN，利用索引优化
-    params = [user_id, REVIEW_STATUS_SKIP, REVIEW_STATUS_SKIP, REQUIRED_VOTES]
+    params = [user_id, REVIEW_STATUS_SKIP, REVIEW_STATUS_SKIP, REQUIRED_WEIGHT]
     
     sql = f'''
         SELECT i.*, r.name as role_name
@@ -400,8 +400,10 @@ def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optiona
             WHERE image_id = i.id AND user_id = ? AND status != ?
         )
             AND (
-            SELECT COUNT(*) FROM reviews 
-            WHERE image_id = i.id AND status != ?
+            SELECT COALESCE(SUM(COALESCE(u.credibility_score, 0.5)), 0)
+            FROM reviews rv
+            LEFT JOIN users u ON rv.user_id = u.id
+            WHERE rv.image_id = i.id AND rv.status IN ('pass', 'fail')
         ) < ?
     '''
     if role_id:
@@ -414,11 +416,13 @@ def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optiona
                 WHERE image_id = i.id AND user_id = ? AND status != ?
             )
             AND (
-                SELECT COUNT(*) FROM reviews 
-                WHERE image_id = i.id AND status != ?
+                SELECT COALESCE(SUM(COALESCE(u.credibility_score, 0.5)), 0)
+                FROM reviews rv
+                LEFT JOIN users u ON rv.user_id = u.id
+                WHERE rv.image_id = i.id AND rv.status IN ('pass', 'fail')
             ) < ?
             '''
-        params = [role_id, user_id, REVIEW_STATUS_SKIP, REVIEW_STATUS_SKIP, REQUIRED_VOTES]
+        params = [role_id, user_id, REVIEW_STATUS_SKIP, REVIEW_STATUS_SKIP, REQUIRED_WEIGHT]
     
     cursor.execute(sql + ' ORDER BY RANDOM() LIMIT 1', params)
     
@@ -647,20 +651,24 @@ def get_overall_stats() -> StatsResponse:
             SUM(pass_count) as pass_count,
             SUM(fail_count) as fail_count,
             SUM(skip_count) as skip_count,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? THEN image_id END) as completed_images,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? THEN image_id END) as completed_pass,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? AND fail_count >= ? THEN image_id END) as completed_fail
+            COUNT(DISTINCT CASE WHEN total_weight >= ? THEN image_id END) as completed_images,
+            COUNT(DISTINCT CASE WHEN total_weight >= ? AND pass_weight >= fail_weight THEN image_id END) as completed_pass,
+            COUNT(DISTINCT CASE WHEN total_weight >= ? AND fail_weight > pass_weight THEN image_id END) as completed_fail
         FROM (
             SELECT 
-                image_id,
-                COUNT(CASE WHEN status != ? THEN 1 END) as vote_count,
-                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as pass_count,
-                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as fail_count,
-                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as skip_count
-            FROM reviews
-            GROUP BY image_id
+                r.image_id,
+                COALESCE(SUM(CASE WHEN r.status IN ('pass', 'fail') THEN COALESCE(u.credibility_score, 0.5) ELSE 0 END), 0) as total_weight,
+                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, 0.5) ELSE 0 END), 0) as pass_weight,
+                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, 0.5) ELSE 0 END), 0) as fail_weight,
+                COUNT(CASE WHEN r.status != ? THEN 1 END) as vote_count,
+                SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as pass_count,
+                SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as fail_count,
+                SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as skip_count
+            FROM reviews r
+            LEFT JOIN users u ON r.user_id = u.id
+            GROUP BY r.image_id
         )
-    ''', (REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
+    ''', (REQUIRED_WEIGHT, REQUIRED_WEIGHT, REQUIRED_WEIGHT, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
     
     stats = cursor.fetchone()
     conn.close()
@@ -701,22 +709,26 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
             SUM(pass_count) as pass_count,
             SUM(fail_count) as fail_count,
             SUM(skip_count) as skip_count,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? THEN image_id END) as completed_images,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? AND pass_count >= ? THEN image_id END) as completed_pass,
-            COUNT(DISTINCT CASE WHEN vote_count >= ? AND fail_count >= ? THEN image_id END) as completed_fail
+            COUNT(DISTINCT CASE WHEN total_weight >= ? THEN image_id END) as completed_images,
+            COUNT(DISTINCT CASE WHEN total_weight >= ? AND pass_weight >= fail_weight THEN image_id END) as completed_pass,
+            COUNT(DISTINCT CASE WHEN total_weight >= ? AND fail_weight > pass_weight THEN image_id END) as completed_fail
         FROM (
             SELECT 
                 r.image_id,
+                COALESCE(SUM(CASE WHEN r.status IN ('pass', 'fail') THEN COALESCE(u.credibility_score, 0.5) ELSE 0 END), 0) as total_weight,
+                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, 0.5) ELSE 0 END), 0) as pass_weight,
+                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, 0.5) ELSE 0 END), 0) as fail_weight,
                 COUNT(CASE WHEN r.status != ? THEN 1 END) as vote_count,
                 SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as pass_count,
                 SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as fail_count,
                 SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as skip_count
             FROM reviews r
+            LEFT JOIN users u ON r.user_id = u.id
             JOIN images i ON r.image_id = i.id
             WHERE i.role_id = ?
             GROUP BY r.image_id
         )
-    """, (REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REQUIRED_VOTES, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, role_id))
+    """, (REQUIRED_WEIGHT, REQUIRED_WEIGHT, REQUIRED_WEIGHT, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, role_id))
     
     stats = cursor.fetchone()
     conn.close()
