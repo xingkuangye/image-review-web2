@@ -1226,8 +1226,15 @@ function updatePanelOverlay() {
 }
 
 async function showRoleModal() {
+    var panel = document.getElementById('rolePanel');
+    
+    // 如果已打开，则关闭（切换按钮）
+    if (panel && panel.classList.contains('open')) {
+        closeRolePanel();
+        return;
+    }
+    
     closeRulePanel(); // close the other panel first
-    const panel = document.getElementById('rolePanel');
     const roleList = document.getElementById('roleList');
     
     if (!panel) return;
@@ -1326,8 +1333,15 @@ function closeImageDetailModal(event) {
 
 // ========== 审核要求 ==========
 async function showRuleModal() {
+    var panel = document.getElementById('rulePanel');
+    
+    // 如果已打开，则关闭（切换按钮）
+    if (panel && panel.classList.contains('open')) {
+        closeRulePanel();
+        return;
+    }
+    
     closeRolePanel(); // close the other panel first
-    const panel = document.getElementById('rulePanel');
     const content = document.getElementById('ruleContent');
     
     if (!panel) return;
@@ -1530,23 +1544,20 @@ if (reviewImage) {
 }
 
 // ========== 点击模态框外部关闭 ==========
-document.addEventListener('click', function(event) {
-    ['rulePanel', 'rolePanel'].forEach(function(pid) {
-        var panel = document.getElementById(pid);
-        if (panel && panel.classList.contains('open')) {
-            var rect = panel.getBoundingClientRect();
-            var isMobile = window.innerWidth <= 768;
-            // Desktop: click outside (left of panel)
-            // Mobile: click on the dark overlay (the image area behind the panel)
-            if ((!isMobile && event.clientX < rect.left) ||
-                (isMobile && event.clientY < rect.top)) {
-                if (pid === 'rulePanel') closeRulePanel();
-                else closeRolePanel();
-            }
-        }
-    });
-});
-window.onclick = function(event) {
+	document.addEventListener('click', function(event) {
+	    ['rulePanel', 'rolePanel'].forEach(function(pid) {
+	        var panel = document.getElementById(pid);
+	        if (panel && panel.classList.contains('open')) {
+	            var rect = panel.getBoundingClientRect();
+	            var isMobile = window.innerWidth <= 768;
+	            // Only close on mobile when clicking the overlay above the panel
+	            if (isMobile && event.clientY < rect.top) {
+	                if (pid === 'rulePanel') closeRulePanel();
+	                else closeRolePanel();
+	            }
+	        }
+	    });
+	});window.onclick = function(event) {
     const modalIds = ['roleModal'];
     
     modalIds.forEach(id => {
