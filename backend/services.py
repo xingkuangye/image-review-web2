@@ -509,6 +509,9 @@ def submit_review(image_id: int, user_id: str, status: str):
     conn.commit()
 
     # 批量查询：一次性获取该用户参与的所有图片的全部投票
+    # 注意：每次投票都重新检查所有历史图片以确保准确性（其他用户的后续投票
+    # 可能改变之前的共识），这是一种权衡——用更多计算换取可信度实时精确。
+    # 若用户投票历史极大（数万条），可考虑限制到最近 N 张图片或增量缓存。
     cursor.execute('''
         SELECT r.image_id, r.user_id, r.status, COALESCE(u.credibility_score, 0.5)
         FROM reviews r
@@ -523,16 +526,17 @@ def submit_review(image_id: int, user_id: str, status: str):
     ''', (user_id,))
     all_rows = cursor.fetchall()
     
+    # 按 image_id 分组为 dict[image_id] -> [(user_id, status, credibility)]
+    groups: dict[int, list] = {}
+    for row in all_rows:
+        gid = row[0]
+        if gid not in groups:
+            groups[gid] = []
+        groups[gid].append((row[1], row[2], row[3]))
+
     total = 0
     agrees = 0
-    # 按 image_id 分组
-    i = 0
-    while i < len(all_rows):
-        img_id = all_rows[i][0]
-        group = []
-        while i < len(all_rows) and all_rows[i][0] == img_id:
-            group.append((all_rows[i][1], all_rows[i][2], all_rows[i][3]))
-            i += 1
+    for gid, group in groups.items():
         # 只有 ≥2 人投票的图片才计入可信度（排除自证合理）
         result = compute_weighted_result(group, min_voters=2)
         if result is None:
