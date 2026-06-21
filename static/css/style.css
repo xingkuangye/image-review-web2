@@ -1296,13 +1296,18 @@ body {
     margin: 8px 0;
     overflow: hidden;
     position: relative;
+    transition: border-color 0.25s ease, background 0.25s ease;
+    display: grid;
+    grid-template-rows: auto 0fr;
+    transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .rule-content details[open] {
     background: rgba(255,255,255,0.04);
     border-color: var(--border-medium);
+    grid-template-rows: auto 1fr;
 }
 .rule-content details[open]:has(summary) {
-    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.04);
 }
 .rule-content summary {
     cursor: pointer;
@@ -1311,21 +1316,23 @@ body {
     font-size: 14px;
     color: var(--text-primary);
     user-select: none;
-    transition: background 0.12s, padding 0.12s;
     list-style: none;
     display: flex;
     align-items: center;
     gap: 8px;
 }
-.rule-content summary::-webkit-details-marker {
+.rule-content summary::-webkit-details-marker,
+.rule-content summary::marker {
     display: none;
+    content: '';
 }
 .rule-content summary::before {
     content: '\25B8';
-    font-size: 10px;
-    color: var(--text-muted);
-    transition: transform 0.2s ease-out;
+    font-size: 11px;
+    color: var(--accent-blue);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     flex-shrink: 0;
+    margin-right: 2px;
 }
 .rule-content details[open] > summary::before {
     transform: rotate(90deg);
@@ -1346,7 +1353,17 @@ body {
     padding-bottom: 8px;
     margin-bottom: 0;
 }
+
+/* Content area: grid child that animates */
 .rule-content details > *:not(summary) {
+    min-height: 0;
+    overflow: hidden;
+    padding: 0 16px;
+    opacity: 0;
+    transition: opacity 0.25s ease-out, padding 0.25s ease-out;
+}
+.rule-content details[open] > *:not(summary) {
+    opacity: 1;
     padding: 8px 16px 14px;
 }
 .rule-content details > *:not(summary) p:first-child {
@@ -1369,6 +1386,14 @@ body {
     font-size: 13px;
 }
 .rule-content details details > *:not(summary) {
+    min-height: 0;
+    overflow: hidden;
+    padding: 0 12px;
+    opacity: 0;
+    transition: opacity 0.2s ease-out, padding 0.2s ease-out;
+}
+.rule-content details details[open] > *:not(summary) {
+    opacity: 1;
     padding: 6px 12px 10px;
 }
 .rule-content details details details summary {
