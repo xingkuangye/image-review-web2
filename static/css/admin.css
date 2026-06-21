@@ -354,6 +354,28 @@ body {
 .btn-sm { padding: 5px 10px; font-size: 11px; border-radius: 6px; }
 .btn-small { padding: 5px 10px; font-size: 11px; border-radius: 6px; }
 
+.btn-spin {
+    position: relative;
+    padding-left: 24px;
+    pointer-events: none;
+    opacity: 0.7;
+}
+.btn-spin::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 50%;
+    margin-top: -5px;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--text-muted);
+    border-top-color: var(--text-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
 .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ========== Inputs ========== */

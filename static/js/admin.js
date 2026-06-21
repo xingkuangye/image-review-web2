@@ -793,7 +793,10 @@ async function loadStats() {
 }
 
 // ========== 角色图片详情 ==========
+var _currentRoleId = null;
+
 async function showRoleImages(roleId, roleName) {
+    _currentRoleId = roleId;
     document.getElementById('roleImagesTitle').textContent = roleName + ' - 图片审核状态';
     document.getElementById('roleImagesPanel').style.display = 'block';
     document.getElementById('roleImagesList').innerHTML = '<p style="padding:20px;color:var(--text-muted);text-align:center;">加载中...</p>';
@@ -803,6 +806,22 @@ async function showRoleImages(roleId, roleName) {
         renderRoleImages(data.images);
     } catch (e) {
         document.getElementById('roleImagesList').innerHTML = '<p style="padding:20px;color:var(--accent-red);text-align:center;">加载失败</p>';
+    }
+}
+async function refreshRoleImages() {
+    if (!_currentRoleId) return;
+    var btn = document.getElementById('refreshRoleBtn');
+    btn.classList.add('btn-spin');
+    btn.disabled = true;
+    try {
+        const response = await adminFetch('/api/admin/role-images/' + _currentRoleId);
+        const data = await response.json();
+        renderRoleImages(data.images);
+    } catch (e) {
+        console.error('刷新失败:', e);
+    } finally {
+        btn.classList.remove('btn-spin');
+        btn.disabled = false;
     }
 }
 function closeRoleImages() {

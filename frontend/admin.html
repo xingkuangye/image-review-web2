@@ -160,7 +160,10 @@
             <div id="roleImagesPanel" class="panel" style="display:none">
                 <div class="panel-header">
                     <h3><span id="roleImagesTitle"></span></h3>
-                    <button class="btn btn-outline" onclick="closeRoleImages()">关闭</button>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-outline" onclick="refreshRoleImages()" id="refreshRoleBtn">刷新</button>
+                        <button class="btn btn-outline" onclick="closeRoleImages()">关闭</button>
+                    </div>
                 </div>
                 <div id="roleImagesList" class="role-images-grid"></div>
             </div>
