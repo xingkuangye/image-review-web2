@@ -1288,42 +1288,101 @@ body {
     font-size: 13px;
 }
 
-/* Details/Summary */
+/* Details/Summary collapsible */
 .rule-content details {
-    background: rgba(255,255,255,0.015);
+    background: rgba(255,255,255,0.02);
     border: 1px solid var(--border-subtle);
     border-radius: 10px;
     margin: 8px 0;
     overflow: hidden;
+    position: relative;
 }
 .rule-content details[open] {
-    background: rgba(255,255,255,0.025);
+    background: rgba(255,255,255,0.04);
     border-color: var(--border-medium);
+}
+.rule-content details[open]:has(summary) {
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
 }
 .rule-content summary {
     cursor: pointer;
-    padding: 8px 14px;
+    padding: 10px 16px;
     font-weight: 600;
-    font-size: 13.5px;
+    font-size: 14px;
     color: var(--text-primary);
     user-select: none;
-    transition: background 0.1s;
-}
-.rule-content summary:hover {
-    background: rgba(255,255,255,0.03);
+    transition: background 0.12s, padding 0.12s;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 .rule-content summary::-webkit-details-marker {
-    color: var(--text-muted);
+    display: none;
 }
-.rule-content details[open] summary {
+.rule-content summary::before {
+    content: '\25B8';
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease-out;
+    flex-shrink: 0;
+}
+.rule-content details[open] > summary::before {
+    transform: rotate(90deg);
+}
+.rule-content summary:hover {
+    background: rgba(255,255,255,0.04);
+}
+.rule-content summary h1, .rule-content summary h2, .rule-content summary h3,
+.rule-content summary h4, .rule-content summary h5 {
+    display: inline !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    margin: 0 !important;
+    color: inherit !important;
+}
+.rule-content details[open] > summary {
     border-bottom: 1px solid var(--border-subtle);
-    padding-bottom: 7px;
+    padding-bottom: 8px;
+    margin-bottom: 0;
 }
 .rule-content details > *:not(summary) {
-    padding: 6px 14px 12px;
+    padding: 8px 16px 14px;
 }
 .rule-content details > *:not(summary) p:first-child {
     margin-top: 0;
+}
+
+/* Nested details (indent and alternate border color) */
+.rule-content details details {
+    margin: 6px 0 6px 8px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.01);
+    border-color: rgba(255,255,255,0.04);
+}
+.rule-content details details[open] {
+    background: rgba(255,255,255,0.02);
+    border-color: rgba(255,255,255,0.07);
+}
+.rule-content details details summary {
+    padding: 7px 12px;
+    font-size: 13px;
+}
+.rule-content details details > *:not(summary) {
+    padding: 6px 12px 10px;
+}
+.rule-content details details details summary {
+    padding: 5px 10px;
+    font-size: 12.5px;
+}
+
+[data-theme="light"] .rule-content details {
+    background: rgba(0,0,0,0.02);
+    border-color: rgba(0,0,0,0.06);
+}
+[data-theme="light"] .rule-content details[open] {
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.1);
 }
 .rule-content code {
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
@@ -1385,45 +1444,6 @@ body {
     border-radius: 0 8px 8px 0;
 }
 
-/* Details / Summary collapsible */
-.rule-content details {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    margin: 12px 0;
-    overflow: hidden;
-}
-.rule-content details[open] {
-    background: rgba(255,255,255,0.03);
-    border-color: var(--border-medium);
-}
-.rule-content summary {
-    cursor: pointer;
-    padding: 12px 16px;
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--text-primary);
-    user-select: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: background 0.15s;
-}
-.rule-content summary:hover {
-    background: rgba(255,255,255,0.03);
-}
-.rule-content summary::-webkit-details-marker {
-    color: var(--text-muted);
-}
-.rule-content details[open] summary {
-    border-bottom: 1px solid var(--border-subtle);
-}
-.rule-content details > *:not(summary) {
-    padding: 8px 16px 16px;
-}
-.rule-content details > *:not(summary) p:first-child {
-    margin-top: 0;
-}
 
 /* ========== Mobile Bottom Nav ========== */
 .mobile-bottom-nav {
