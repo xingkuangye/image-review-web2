@@ -207,6 +207,22 @@ async def init_user():
     log_message(f"新用户创建: {user_id}")
     return user
 
+@app.get("/api/user/me")
+async def get_user_by_token(x_user_token: str = Header(None)):
+    """通过令牌获取用户信息（安全方式）"""
+    if not x_user_token:
+        raise HTTPException(status_code=400, detail="缺少令牌")
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE user_token = ?", (x_user_token,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="令牌无效")
+    update_user_activity(row[0])
+    return create_or_get_user(row[0])
+
+
 @app.get("/api/user/{user_id}")
 async def get_user(user_id: str):
     """获取用户信息"""

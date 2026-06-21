@@ -29,6 +29,7 @@ def init_db():
             created_at TEXT NOT NULL,
             last_active TEXT NOT NULL,
             is_banned INTEGER DEFAULT 0,
+            user_token TEXT,
             credibility_score REAL,
             credibility_agrees INTEGER DEFAULT 0,
             credibility_total INTEGER DEFAULT 0
@@ -94,22 +95,30 @@ def init_db():
 
 def migrate_add_credibility():
     """为已有数据库添加可信度字段"""
-    conn = get_db()
-    cursor = conn.cursor()
+    conn = None
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN credibility_score REAL")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN credibility_agrees INTEGER DEFAULT 0")
-    except Exception:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN credibility_total INTEGER DEFAULT 0")
-    except Exception:
-        pass
-    conn.commit()
-    conn.close()
+        conn = get_db()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN credibility_score REAL")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN credibility_agrees INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN credibility_total INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN user_token TEXT")
+        except Exception:
+            pass
+        conn.commit()
+    finally:
+        if conn:
+            conn.close()
 
 
 def update_all_credibility():

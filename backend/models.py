@@ -16,6 +16,7 @@ class UserResponse(BaseModel):
     last_active: str
     is_banned: int
     total_reviews: int = 0
+    user_token: Optional[str] = None
 
 # 角色相关
 class RoleCreate(BaseModel):

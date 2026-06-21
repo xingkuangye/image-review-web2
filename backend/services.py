@@ -62,9 +62,10 @@ def create_or_get_user(user_id: str, nickname: str = "匿名用户") -> UserResp
     if not user:
         # 创建新用户
         now = datetime.now().isoformat()
+        user_token = str(uuid.uuid4())
         cursor.execute(
-            "INSERT INTO users (id, nickname, created_at, last_active) VALUES (?, ?, ?, ?)",
-            (user_id, nickname, now, now)
+            "INSERT INTO users (id, nickname, created_at, last_active, user_token) VALUES (?, ?, ?, ?, ?)",
+            (user_id, nickname, now, now, user_token)
         )
         conn.commit()
         cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
@@ -74,6 +75,13 @@ def create_or_get_user(user_id: str, nickname: str = "匿名用户") -> UserResp
     cursor.execute("SELECT COUNT(*) as count FROM reviews WHERE user_id = ?", (user_id,))
     total_reviews = cursor.fetchone()['count']
     
+    # 如果用户没有token，自动生成一个
+    token = user['user_token'] if 'user_token' in user else None
+    if not token:
+        token = str(uuid.uuid4())
+        cursor.execute("UPDATE users SET user_token = ? WHERE id = ?", (token, user_id))
+        conn.commit()
+    
     conn.close()
     
     return UserResponse(
@@ -82,7 +90,8 @@ def create_or_get_user(user_id: str, nickname: str = "匿名用户") -> UserResp
         created_at=user['created_at'],
         last_active=user['last_active'],
         is_banned=user['is_banned'],
-        total_reviews=total_reviews
+        total_reviews=total_reviews,
+        user_token=token
     )
 
 def update_user_nickname(user_id: str, nickname: str) -> bool:

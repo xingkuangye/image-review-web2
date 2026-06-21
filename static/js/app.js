@@ -314,24 +314,31 @@ window.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
-// ========== 用户初始化 ==========
+// ========== 用户初始化（令牌安全模式）==========
 async function initUser() {
     try {
-        // 尝试从localStorage获取用户ID
-        let userId = localStorage.getItem('review_user_id');
+        // 尝试从localStorage获取用户令牌
+        let token = localStorage.getItem('review_user_token');
         
         let response;
-        if (!userId) {
-            // 创建新用户
+        if (!token) {
+            // 创建新用户，获取令牌
             response = await fetch('/api/user/init');
             if (!response.ok) throw new Error('创建用户失败');
             currentUser = await response.json();
-            localStorage.setItem('review_user_id', currentUser.id);
-        } else {
-            // 获取现有用户
-            response = await fetch(`/api/user/${userId}`);
-            if (!response.ok) {
+            if (currentUser.user_token) {
+                localStorage.setItem('review_user_token', currentUser.user_token);
                 localStorage.removeItem('review_user_id');
+            } else {
+                localStorage.setItem('review_user_id', currentUser.id);
+            }
+        } else {
+            // 通过令牌获取用户
+            response = await fetch('/api/user/me', {
+                headers: { 'X-User-Token': token }
+            });
+            if (!response.ok) {
+                localStorage.removeItem('review_user_token');
                 await initUser();
                 return;
             }
