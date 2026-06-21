@@ -10,6 +10,7 @@ from backend.models import *
 # ============ 审核规则常量 ============
 # 一张图片需要的最少投票人数（3人投票制）
 REQUIRED_VOTES = 3
+REQUIRED_WEIGHT = 4.0  # 累计可信度达到此值后判定结果
 
 # ============ 审核状态常量 ============
 # 集中定义审核状态，避免多处硬编码
@@ -481,25 +482,22 @@ def submit_review(image_id: int, user_id: str, status: str):
     )
     conn.commit()
 
-    # 检查该图片是否已有3票（非skip）
+    # 检查累计可信度是否达到阈值
     cursor.execute('''
-        SELECT COUNT(*) FROM reviews
-        WHERE image_id = ? AND status IN ('pass', 'fail')
+        SELECT r.user_id, r.status, u.credibility_score
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
     ''', (image_id,))
-    vote_count = cursor.fetchone()[0]
+    vote_data_raw = cursor.fetchall()
+    total_weight = sum((row[2] or 0.5) for row in vote_data_raw)
 
-    if vote_count >= REQUIRED_VOTES:
-        # 可信度加权投票
-        cursor.execute('''
-            SELECT r.user_id, r.status, u.credibility_score
-            FROM reviews r
-            JOIN users u ON r.user_id = u.id
-            WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
-        ''', (image_id,))
+    if total_weight >= REQUIRED_WEIGHT:
+        # 可信度加权投票判定
         vote_data = []
         weighted_pass = 0.0
         weighted_fail = 0.0
-        for uid, vote, cred in cursor.fetchall():
+        for uid, vote, cred in vote_data_raw:
             cred = cred or 0.5
             vote_data.append((uid, vote, cred))
             if vote == 'pass':
@@ -635,7 +633,7 @@ def get_overall_stats() -> StatsResponse:
     completed_pass = stats['completed_pass'] or 0
     completed_fail = stats['completed_fail'] or 0
     completed_disputed = completed_images - completed_pass - completed_fail
-    progress_percent = (total_reviews / (total_images * REQUIRED_VOTES) * 100) if total_images > 0 else 0
+    progress_percent = (total_reviews / (total_images * 3) * 100) if total_images > 0 else 0
     
     return StatsResponse(
         total_images=total_images,
@@ -694,7 +692,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
     completed_pass = stats["completed_pass"] or 0
     completed_fail = stats["completed_fail"] or 0
     completed_disputed = completed_images - completed_pass - completed_fail
-    progress_percent = (total_reviews / (total_images * REQUIRED_VOTES) * 100) if total_images > 0 else 0
+    progress_percent = (total_reviews / (total_images * 3) * 100) if total_images > 0 else 0
     
     return StatsResponse(
         total_images=total_images,
@@ -721,7 +719,8 @@ def get_image_final_status(image_id: int) -> Optional[str]:
     ''', (image_id,))
     rows = cursor.fetchall()
     conn.close()
-    if len(rows) < REQUIRED_VOTES:
+    total_weight = sum(r[2] or 0.5 for r in rows)
+    if total_weight < REQUIRED_WEIGHT:
         return None
     w_pass = sum(r[2] or 0.5 for r in rows if r[1] == 'pass')
     w_fail = sum(r[2] or 0.5 for r in rows if r[1] == 'fail')
@@ -740,65 +739,33 @@ def _calculate_final_status(votes):
 
 
 def get_image_final_statuses_batch(image_ids):
-    """Batch get final status for multiple images.
-    Returns: {image_id: status} dict, None means review not completed.
-    """
+    """Batch get final status for multiple images (可信度加权)."""
     if not image_ids:
         return {}
-    
-    # Validate and normalize all IDs to integers, then deduplicate
-    validated_ids = []
-    skipped_ids = []
-    seen_ids = set()
-    for img_id in image_ids:
-        try:
-            int_id = int(img_id)
-            if int_id not in seen_ids:
-                validated_ids.append(int_id)
-                seen_ids.add(int_id)
-        except (TypeError, ValueError):
-            skipped_ids.append(img_id)
-    
-    if skipped_ids:
-        log_message(f"Skipped invalid image IDs: {skipped_ids}")
-    
+    validated_ids = list(dict.fromkeys(int(i) for i in image_ids if str(i).isdigit()))
     if not validated_ids:
         return {}
+    result = {}
     conn = get_db()
     try:
         cursor = conn.cursor()
-        # Chunk validated_ids to avoid SQLite parameter limits
-        batch_size = 800
-        all_votes = []
-        for i in range(0, len(validated_ids), batch_size):
-            batch_ids = validated_ids[i:i + batch_size]
-            placeholders = ','.join('?' * len(batch_ids))
-            # Note: placeholders is safe (just '?' repeated), actual values use parameterized query
-            sql = (
-                'SELECT image_id, status FROM reviews '
-                'WHERE image_id IN (' + placeholders + ') '
-                'AND status != ? '
-                'ORDER BY image_id, reviewed_at ASC, id ASC'
-            )
-            cursor.execute(sql, (*batch_ids, REVIEW_STATUS_SKIP))
-            all_votes.extend(cursor.fetchall())
+        for img_id in validated_ids:
+            cursor.execute('''
+                SELECT r.user_id, r.status, u.credibility_score
+                FROM reviews r
+                JOIN users u ON r.user_id = u.id
+                WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
+            ''', (img_id,))
+            rows = cursor.fetchall()
+            total_weight = sum(r[2] or 0.5 for r in rows)
+            if total_weight >= REQUIRED_WEIGHT:
+                w_pass = sum(r[2] or 0.5 for r in rows if r[1] == 'pass')
+                w_fail = total_weight - w_pass
+                result[img_id] = 'pass' if w_pass >= w_fail else 'fail'
+            else:
+                result[img_id] = None
     finally:
         conn.close()
-    # Group votes by image and limit to REQUIRED_VOTES per image
-    votes_by_image = {}
-    for row in all_votes:
-        img_id = row['image_id']
-        if img_id not in votes_by_image:
-            votes_by_image[img_id] = []
-        # Limit votes per image to match single-query behavior
-        if len(votes_by_image[img_id]) < REQUIRED_VOTES:
-            votes_by_image[img_id].append(row['status'])
-    
-    # Calculate final status for each image using shared helper
-    result = {}
-    for img_id in validated_ids:
-        votes = votes_by_image.get(img_id, [])
-        result[img_id] = _calculate_final_status(votes)
     return result
 
 def get_disputed_images() -> List[dict]:
