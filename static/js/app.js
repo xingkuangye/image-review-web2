@@ -314,31 +314,85 @@ window.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
-// ========== 用户初始化（令牌安全模式）==========
+// ========== Cookie 工具函数 ==========
+function setCookie(name, value, days) {
+    var expires = '';
+    if (days) {
+        var d = new Date();
+        d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+        expires = '; expires=' + d.toUTCString();
+    }
+    document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=Lax';
+}
+function getCookie(name) {
+    var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : null;
+}
+function deleteCookie(name) {
+    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
+}
+
+// ========== 用户初始化（Cookie 安全模式）==========
 async function initUser() {
     try {
-        // 尝试从localStorage获取用户令牌
-        let token = localStorage.getItem('review_user_token');
+        // 1. 优先从 Cookie 获取令牌
+        var token = getCookie('review_user_token');
+        var migrated = false;
         
-        let response;
         if (!token) {
-            // 创建新用户，获取令牌
+            // 2. 从 localStorage 迁移旧 user_id
+            var oldUserId = localStorage.getItem('review_user_id');
+            if (oldUserId) {
+                try {
+                    var resp = await fetch('/api/user/' + oldUserId);
+                    if (resp.ok) {
+                        var userData = await resp.json();
+                        if (userData.user_token) {
+                            token = userData.user_token;
+                            setCookie('review_user_token', token, 365);
+                            localStorage.removeItem('review_user_id');
+                            migrated = true;
+                        }
+                    }
+                } catch (e) {}
+            }
+            // 3. 从 localStorage 迁移旧 token
+            if (!token) {
+                var oldToken = localStorage.getItem('review_user_token');
+                if (oldToken) {
+                    try {
+                        var resp = await fetch('/api/user/me', {
+                            headers: { 'X-User-Token': oldToken }
+                        });
+                        if (resp.ok) {
+                            token = oldToken;
+                            setCookie('review_user_token', token, 365);
+                            localStorage.removeItem('review_user_token');
+                            migrated = true;
+                        }
+                    } catch (e) {}
+                }
+            }
+        }
+        
+        var response;
+        if (!token) {
+            // 4. 创建新用户
             response = await fetch('/api/user/init');
             if (!response.ok) throw new Error('创建用户失败');
             currentUser = await response.json();
             if (currentUser.user_token) {
-                localStorage.setItem('review_user_token', currentUser.user_token);
-                localStorage.removeItem('review_user_id');
-            } else {
-                localStorage.setItem('review_user_id', currentUser.id);
+                setCookie('review_user_token', currentUser.user_token, 365);
             }
+            localStorage.removeItem('review_user_id');
+            localStorage.removeItem('review_user_token');
         } else {
-            // 通过令牌获取用户
+            // 5. 通过 Cookie 中的令牌获取用户
             response = await fetch('/api/user/me', {
                 headers: { 'X-User-Token': token }
             });
             if (!response.ok) {
-                localStorage.removeItem('review_user_token');
+                deleteCookie('review_user_token');
                 await initUser();
                 return;
             }
