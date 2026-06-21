@@ -489,19 +489,27 @@ def submit_review(image_id: int, user_id: str, status: str):
     vote_count = cursor.fetchone()[0]
 
     if vote_count >= REQUIRED_VOTES:
+        # 可信度加权投票
         cursor.execute('''
-            SELECT status FROM reviews
-            WHERE image_id = ? AND status IN ('pass', 'fail')
+            SELECT r.user_id, r.status, u.credibility_score
+            FROM reviews r
+            JOIN users u ON r.user_id = u.id
+            WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
         ''', (image_id,))
-        votes_list = [row[0] for row in cursor.fetchall()]
-        pass_count = votes_list.count('pass')
-        final_result = 'pass' if pass_count >= 2 else 'fail'
+        vote_data = []
+        weighted_pass = 0.0
+        weighted_fail = 0.0
+        for uid, vote, cred in cursor.fetchall():
+            cred = cred or 0.5
+            vote_data.append((uid, vote, cred))
+            if vote == 'pass':
+                weighted_pass += cred
+            else:
+                weighted_fail += cred
 
-        cursor.execute('''
-            SELECT user_id, status FROM reviews
-            WHERE image_id = ? AND status IN ('pass', 'fail')
-        ''', (image_id,))
-        for uid, vote in cursor.fetchall():
+        final_result = 'pass' if weighted_pass >= weighted_fail else 'fail'
+
+        for uid, vote, cred in vote_data:
             agrees = 1 if vote == final_result else 0
             cursor.execute('''
                 UPDATE users SET
@@ -638,7 +646,7 @@ def get_overall_stats() -> StatsResponse:
         skip_count=stats['skip_count'] or 0,
         progress_percent=round(progress_percent, 2),
         completed_images=completed_images,
-        disputed_count=max(0, completed_disputed),
+        disputed_count=0,
         total_votes=total_reviews
     )
 
@@ -697,48 +705,38 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
         skip_count=stats["skip_count"] or 0,
         progress_percent=round(progress_percent, 2),
         completed_images=completed_images,
-        disputed_count=max(0, completed_disputed),
+        disputed_count=0,
         total_votes=total_reviews
     )
 
 def get_image_final_status(image_id: int) -> Optional[str]:
-    """获取图片最终审核状态
-    - 3人投票全部通过 = pass
-    - 3人投票有分歧（有通过也有不通过）= disputed
-    - 3人投票全部不通过 = fail
-    """
+    """获取图片最终审核状态（可信度加权）"""
     conn = get_db()
     cursor = conn.cursor()
-    
     cursor.execute('''
-        SELECT status FROM reviews
-        WHERE image_id = ? AND status != ?
-        ORDER BY reviewed_at ASC, id ASC
-        LIMIT ?
-    ''', (image_id, REVIEW_STATUS_SKIP, REQUIRED_VOTES))
-    
-    votes = [row['status'] for row in cursor.fetchall()]
+        SELECT r.user_id, r.status, u.credibility_score
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
+    ''', (image_id,))
+    rows = cursor.fetchall()
     conn.close()
-    
-    return _calculate_final_status(votes)
+    if len(rows) < REQUIRED_VOTES:
+        return None
+    w_pass = sum(r[2] or 0.5 for r in rows if r[1] == 'pass')
+    w_fail = sum(r[2] or 0.5 for r in rows if r[1] == 'fail')
+    return 'pass' if w_pass >= w_fail else 'fail'
 
 
 
 
 def _calculate_final_status(votes):
-    """Helper: Calculate final status from votes list.
-    Shared logic between single and batch functions.
-    """
+    """Helper: 简单多数决（旧版兼容）"""
     if len(votes) < REQUIRED_VOTES:
         return None
     pass_count = votes.count(REVIEW_STATUS_PASS)
     fail_count = votes.count(REVIEW_STATUS_FAIL)
-    if pass_count == REQUIRED_VOTES:
-        return REVIEW_STATUS_PASS
-    elif fail_count == REQUIRED_VOTES:
-        return REVIEW_STATUS_FAIL
-    else:
-        return REVIEW_STATUS_DISPUTED
+    return 'pass' if pass_count >= fail_count else 'fail'
 
 
 def get_image_final_statuses_batch(image_ids):
