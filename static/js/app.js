@@ -1321,25 +1321,59 @@ function closeRulePanel() {
 // 简单的Markdown解析（带XSS防护）
 function parseMarkdown(text) {
     if (!text) return '';
-    
-    // 第〇步：提取 <details> 块，暂存为占位符
+
+    // 第零步：提取 <details> 块（支持嵌套，栈平衡匹配）
     var blocks = [];
     var counter = 0;
-    text = text.replace(/<details>([\s\S]*?)<\/details>/g, function(m, inner) {
-        var ph = '%%DETAILS_' + (counter++) + '%%';
-        blocks.push(m);
-        return ph;
-    });
-    
-    // 第一步：HTML实体转义（防止XSS）
-    var escaped = text
+    var i = 0;
+    var stripped = '';
+    while (i < text.length) {
+        var openPos = text.indexOf('<details>', i);
+        if (openPos < 0) {
+            stripped += text.substring(i);
+            break;
+        }
+        stripped += text.substring(i, openPos);
+        var depth = 1;
+        var j = openPos + '<details>'.length;
+        var endPos = -1;
+        while (j < text.length && depth > 0) {
+            var nextOpen = text.indexOf('<details>', j);
+            var nextClose = text.indexOf('</details>', j);
+            if (nextClose < 0) break;
+            if (nextOpen >= 0 && nextOpen < nextClose) {
+                depth++;
+                j = nextOpen + '<details>'.length;
+            } else {
+                depth--;
+                if (depth === 0) {
+                    endPos = nextClose + '</details>'.length;
+                } else {
+                    j = nextClose + '</details>'.length;
+                }
+            }
+        }
+        if (endPos > 0) {
+            var fullBlock = text.substring(openPos, endPos);
+            var ph = '%%DETAILS_' + (counter++) + '%%';
+            blocks.push({ph: ph, raw: fullBlock});
+            stripped += ph;
+            i = endPos;
+        } else {
+            stripped += text.substring(openPos);
+            break;
+        }
+    }
+
+    // 第一步：HTML实体转义
+    var escaped = stripped
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#x27;');
-    
-    // 第二步：解析Markdown语法
+
+    // 第二步：解析Markdown
     var result = escaped
         .replace(/^### (.+)$/gm, '<h3>$1</h3>')
         .replace(/^## (.+)$/gm, '<h2>$1</h2>')
@@ -1357,40 +1391,35 @@ function parseMarkdown(text) {
         })
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
-    
-    // 第三步：包裹连续 <li> 为 <ul>（在换行转段落之前！）
+
+    // 第三步：包裹连续 <li>
     result = result.replace(/(<li>[\s\S]*?<\/li>(?:\s*<li>[\s\S]*?<\/li>)*)/g, '<ul>$1</ul>');
-    
+
     // 第四步：换行转段落
     result = result
         .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>');
-    
-    // 连续图片组包裹（在换行转段落之后，允许中间有 <br>）
+
+    // 连续图片组包裹
     result = result.replace(/(<img[^>]*>(?:\s*(?:<br>)?\s*<img[^>]*>)+)/g, '<div class="img-group">$1</div>');
-    
-    // 第六步：恢复 details 块
-    for (var i = 0; i < blocks.length; i++) {
-        var raw = blocks[i];
-        // 提取 summary
-        var summaryMatch = raw.match(/<summary>([\s\S]*?)<\/summary>/);
-        var summaryHtml = summaryMatch ? '<summary>' + parseInlineMarkdown(summaryMatch[1]) + '</summary>' : '';
-        // 提取 body（summary 后面的内容，去掉 </details>）
-        var bodyStart = raw.indexOf('</summary>');
-        var body = '';
-        if (bodyStart >= 0) {
-            body = raw.substring(bodyStart + 10);
-            // 去掉末尾的 </details>
-            var closeTag = body.lastIndexOf('</details>');
-            if (closeTag >= 0) body = body.substring(0, closeTag);
-        } else {
-            body = raw.substring(8, raw.length - 9);
+
+    // 第五步：恢复 details 块
+    for (var bi = 0; bi < blocks.length; bi++) {
+        var raw = blocks[bi].raw;
+        var inner = raw.substring('<details>'.length, raw.length - '</details>'.length);
+        var smMatch = inner.match(/<summary>([\s\S]*?)<\/summary>/);
+        var summaryHtml = '';
+        var body = inner;
+        if (smMatch) {
+            summaryHtml = '<summary>' + parseInlineMarkdown(smMatch[1]) + '</summary>';
+            var smEnd = inner.indexOf('</summary>');
+            if (smEnd >= 0) body = inner.substring(smEnd + 10);
         }
         var bodyHtml = parseMarkdown(body);
         var html = '<details>' + summaryHtml + bodyHtml + '</details>';
-        result = result.replace('%%DETAILS_' + i + '%%', html);
+        result = result.replace(blocks[bi].ph, html);
     }
-    
+
     return result;
 }
 
