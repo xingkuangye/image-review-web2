@@ -19,24 +19,27 @@ REVIEW_STATUS_FAIL = 'fail'
 REVIEW_STATUS_SKIP = 'skip'
 
 
-def compute_weighted_result(rows, required_weight=None, default_weight=0.5):
+def compute_weighted_result(rows, required_weight=None, default_weight=0.5, skip_weight_check=False):
     """
     计算加权审核结果。
 
     rows: [(user_id, status, credibility_score), ...]
     required_weight: 所需最小总权重，默认 REQUIRED_WEIGHT
     default_weight: credibility_score 为 None 时的默认值
+    skip_weight_check: 为 True 时即使权重不足也返回结果（用于可信度预热计算）
     返回 'pass'/'fail'/None（权重不足时返回 None）
     """
     if required_weight is None:
         required_weight = REQUIRED_WEIGHT
 
-    total_weight = sum((r[2] if r[2] is not None else default_weight) for r in rows)
-    if total_weight < required_weight:
-        return None
-
     w_pass = sum((r[2] if r[2] is not None else default_weight) for r in rows if r[1] == REVIEW_STATUS_PASS)
     w_fail = sum((r[2] if r[2] is not None else default_weight) for r in rows if r[1] == REVIEW_STATUS_FAIL)
+
+    if not skip_weight_check:
+        total_weight = w_pass + w_fail
+        if total_weight < required_weight:
+            return None
+
     return REVIEW_STATUS_PASS if w_pass >= w_fail else REVIEW_STATUS_FAIL
 
 
@@ -502,32 +505,44 @@ def submit_review(image_id: int, user_id: str, status: str):
     )
     conn.commit()
 
-    # 检查累计可信度是否达到阈值
+    # 用当前加权结果作为「暂定结果」重算本次投票人的可信度
     cursor.execute('''
-        SELECT r.user_id, r.status, u.credibility_score
+        SELECT DISTINCT r.image_id
         FROM reviews r
-        JOIN users u ON r.user_id = u.id
-        WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
-    ''', (image_id,))
-    vote_data_raw = cursor.fetchall()
-    total_weight = sum((row[2] or 0.5) for row in vote_data_raw)
+        WHERE r.user_id = ? AND r.status IN ('pass', 'fail')
+    ''', (user_id,))
+    all_img_ids = [r[0] for r in cursor.fetchall()]
+    
+    total = 0
+    agrees = 0
+    for img in all_img_ids:
+        cursor.execute('''
+            SELECT r.user_id, r.status, COALESCE(u.credibility_score, 0.5)
+            FROM reviews r
+            JOIN users u ON r.user_id = u.id
+            WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
+        ''', (img,))
+        rows = cursor.fetchall()
+        if not rows:
+            continue
+        result = compute_weighted_result([(r[0], r[1], r[2]) for r in rows], skip_weight_check=True)
+        if result is None:
+            continue
+        total += 1
+        user_vote = next((r[1] for r in rows if r[0] == user_id), None)
+        if user_vote == result:
+            agrees += 1
 
-    if total_weight >= REQUIRED_WEIGHT:
-        vote_data = [(uid, vote, cred if cred is not None else 0.5) for uid, vote, cred in vote_data_raw]
-        final_result = compute_weighted_result([(r[0], r[1], r[2]) for r in vote_data])
-
-        for uid, vote, cred in vote_data:
-            agrees = 1 if vote == final_result else 0
-            cursor.execute('''
-                UPDATE users SET
-                    credibility_agrees = credibility_agrees + ?,
-                    credibility_total = credibility_total + 1,
-                    credibility_score = CAST(credibility_agrees + ? + 1 AS REAL) / (credibility_total + 1 + 2)
-                WHERE id = ?
-            ''', (agrees, agrees, uid))
+    if total > 0:
+        new_score = (agrees + 1) / (total + 2)
+        cursor.execute(
+            "UPDATE users SET credibility_agrees = ?, credibility_total = ?, credibility_score = ? WHERE id = ?",
+            (agrees, total, new_score, user_id)
+        )
 
     conn.commit()
     conn.close()
+
 
 def get_user_credibility(user_id: str) -> dict:
     """获取单个用户可信度"""
