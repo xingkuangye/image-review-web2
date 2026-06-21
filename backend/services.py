@@ -632,7 +632,7 @@ def get_overall_stats() -> StatsResponse:
     completed_images = stats['completed_images'] or 0
     completed_pass = stats['completed_pass'] or 0
     completed_fail = stats['completed_fail'] or 0
-    completed_disputed = completed_images - completed_pass - completed_fail
+    completed_disputed = 0
     progress_percent = (total_reviews / (total_images * 3) * 100) if total_images > 0 else 0
     
     return StatsResponse(
@@ -691,7 +691,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
     completed_images = stats["completed_images"] or 0
     completed_pass = stats["completed_pass"] or 0
     completed_fail = stats["completed_fail"] or 0
-    completed_disputed = completed_images - completed_pass - completed_fail
+    completed_disputed = 0
     progress_percent = (total_reviews / (total_images * 3) * 100) if total_images > 0 else 0
     
     return StatsResponse(

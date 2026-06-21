@@ -760,7 +760,7 @@ async function loadStats() {
         document.getElementById('totalVotes').textContent = stats.total_votes || 0;
         document.getElementById('totalCompleted').textContent = stats.completed_images;
         document.getElementById('totalPass').textContent = stats.pass_count || 0;
-        document.getElementById('totalDisputed').textContent = stats.disputed_count || 0;
+        document.getElementById('totalDisputed').textContent = '可信度≥4.0判定';
         document.getElementById('totalFail').textContent = stats.fail_count || 0;
         
         // 角色统计
@@ -836,7 +836,7 @@ async function exportApproved() {
 
 // ========== 争议图片导出 ==========
 async function exportDisputed() {
-    if (!confirm('确定要导出所有有争议的图片吗？\n争议定义：3人投票意见不一致\n图片将按角色分文件夹打包。')) return;
+    if (!confirm('确定要导出争议图片吗？\n加权投票系统下不再产生争议图片。')) return;
     
     const btn = event.target;
     btn.textContent = '导出中...';
