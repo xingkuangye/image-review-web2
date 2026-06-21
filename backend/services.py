@@ -513,19 +513,8 @@ def submit_review(image_id: int, user_id: str, status: str):
     total_weight = sum((row[2] or 0.5) for row in vote_data_raw)
 
     if total_weight >= REQUIRED_WEIGHT:
-        # 可信度加权投票判定
-        vote_data = []
-        weighted_pass = 0.0
-        weighted_fail = 0.0
-        for uid, vote, cred in vote_data_raw:
-            cred = cred or 0.5
-            vote_data.append((uid, vote, cred))
-            if vote == 'pass':
-                weighted_pass += cred
-            else:
-                weighted_fail += cred
-
-        final_result = 'pass' if weighted_pass >= weighted_fail else 'fail'
+        vote_data = [(uid, vote, cred if cred is not None else 0.5) for uid, vote, cred in vote_data_raw]
+        final_result = compute_weighted_result([(r[0], r[1], r[2]) for r in vote_data])
 
         for uid, vote, cred in vote_data:
             agrees = 1 if vote == final_result else 0
@@ -743,14 +732,6 @@ def get_image_final_status(image_id: int) -> Optional[str]:
 
 
 
-
-def _calculate_final_status(votes):
-    """Helper: 简单多数决（旧版兼容）"""
-    if len(votes) < REQUIRED_VOTES:
-        return None
-    pass_count = votes.count(REVIEW_STATUS_PASS)
-    fail_count = votes.count(REVIEW_STATUS_FAIL)
-    return 'pass' if pass_count >= fail_count else 'fail'
 
 
 def get_image_final_statuses_batch(image_ids):

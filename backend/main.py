@@ -1144,6 +1144,19 @@ async def admin_health(x_admin_password: str = Header(None)):
 
 
 
+@app.post("/api/admin/backup/now")
+async def admin_backup_now(x_admin_password: str = Header(None)):
+    """立即执行备份"""
+    verify_admin(x_admin_password)
+    from backend.backup import create_backup, cleanup_old_backups
+    from backend.services import get_backup_retention_days
+    backup_path = create_backup()
+    if backup_path:
+        cleanup_old_backups(get_backup_retention_days())
+        log_message("管理员手动触发备份成功")
+        return {"success": True, "message": "备份成功", "path": backup_path}
+    return {"success": False, "message": "备份失败"}
+
 
 @app.get("/api/admin/backup/list")
 async def admin_list_backups(x_admin_password: str = Header(None)):
