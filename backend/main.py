@@ -831,14 +831,19 @@ async def admin_role_images(role_id: int, x_admin_password: str = Header(None)):
 
         non_skip = [v for v in votes if v["vote"] in ("pass", "fail")]
         total_weight = sum(v["cred"] for v in non_skip)
-        w_pass = sum(v["cred"] for v in non_skip if v["vote"] == "pass")
-        w_fail = total_weight - w_pass
+
+        from backend.services import compute_weighted_result, REQUIRED_WEIGHT
 
         status = "pending"
         resolution = None
-        if total_weight >= 4.0:
-            resolution = "pass" if w_pass >= w_fail else "fail"
+        if total_weight >= REQUIRED_WEIGHT:
+            resolution = compute_weighted_result(
+                [(v["user_id"], v["vote"], v["cred"]) for v in non_skip]
+            )
             status = "completed"
+
+        w_pass = sum(v["cred"] for v in non_skip if v["vote"] == "pass")
+        w_fail = total_weight - w_pass
 
         result.append({
             "id": image_id,

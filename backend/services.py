@@ -18,6 +18,28 @@ REVIEW_STATUS_PASS = 'pass'
 REVIEW_STATUS_FAIL = 'fail'
 REVIEW_STATUS_SKIP = 'skip'
 
+
+def compute_weighted_result(rows, required_weight=None, default_weight=0.5):
+    """
+    计算加权审核结果。
+
+    rows: [(user_id, status, credibility_score), ...]
+    required_weight: 所需最小总权重，默认 REQUIRED_WEIGHT
+    default_weight: credibility_score 为 None 时的默认值
+    返回 'pass'/'fail'/None（权重不足时返回 None）
+    """
+    if required_weight is None:
+        required_weight = REQUIRED_WEIGHT
+
+    total_weight = sum((r[2] if r[2] is not None else default_weight) for r in rows)
+    if total_weight < required_weight:
+        return None
+
+    w_pass = sum((r[2] if r[2] is not None else default_weight) for r in rows if r[1] == REVIEW_STATUS_PASS)
+    w_fail = sum((r[2] if r[2] is not None else default_weight) for r in rows if r[1] == REVIEW_STATUS_FAIL)
+    return REVIEW_STATUS_PASS if w_pass >= w_fail else REVIEW_STATUS_FAIL
+
+
 # 管理员密码文件路径
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASSWORD_FILE = os.path.join(BASE_DIR, 'data', 'admin_password.txt')
@@ -631,7 +653,7 @@ def get_overall_stats() -> StatsResponse:
     completed_pass = stats['completed_pass'] or 0
     completed_fail = stats['completed_fail'] or 0
     completed_disputed = 0
-    progress_percent = (total_reviews / (total_images * 3) * 100) if total_images > 0 else 0
+    progress_percent = (total_reviews / (total_images * REQUIRED_VOTES) * 100) if total_images > 0 else 0
     
     return StatsResponse(
         total_images=total_images,
@@ -690,7 +712,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
     completed_pass = stats["completed_pass"] or 0
     completed_fail = stats["completed_fail"] or 0
     completed_disputed = 0
-    progress_percent = (total_reviews / (total_images * 3) * 100) if total_images > 0 else 0
+    progress_percent = (total_reviews / (total_images * REQUIRED_VOTES) * 100) if total_images > 0 else 0
     
     return StatsResponse(
         total_images=total_images,
@@ -717,12 +739,7 @@ def get_image_final_status(image_id: int) -> Optional[str]:
     ''', (image_id,))
     rows = cursor.fetchall()
     conn.close()
-    total_weight = sum(r[2] or 0.5 for r in rows)
-    if total_weight < REQUIRED_WEIGHT:
-        return None
-    w_pass = sum(r[2] or 0.5 for r in rows if r[1] == 'pass')
-    w_fail = sum(r[2] or 0.5 for r in rows if r[1] == 'fail')
-    return 'pass' if w_pass >= w_fail else 'fail'
+    return compute_weighted_result(rows)
 
 
 
@@ -755,13 +772,7 @@ def get_image_final_statuses_batch(image_ids):
                 WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
             ''', (img_id,))
             rows = cursor.fetchall()
-            total_weight = sum(r[2] or 0.5 for r in rows)
-            if total_weight >= REQUIRED_WEIGHT:
-                w_pass = sum(r[2] or 0.5 for r in rows if r[1] == 'pass')
-                w_fail = total_weight - w_pass
-                result[img_id] = 'pass' if w_pass >= w_fail else 'fail'
-            else:
-                result[img_id] = None
+            result[img_id] = compute_weighted_result(rows)
     finally:
         conn.close()
     return result
