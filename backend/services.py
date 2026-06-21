@@ -19,26 +19,29 @@ REVIEW_STATUS_FAIL = 'fail'
 REVIEW_STATUS_SKIP = 'skip'
 
 
-def compute_weighted_result(rows, required_weight=None, default_weight=0.5, skip_weight_check=False):
+def compute_weighted_result(rows, required_weight=None, default_weight=0.5, min_voters=None):
     """
     计算加权审核结果。
 
     rows: [(user_id, status, credibility_score), ...]
     required_weight: 所需最小总权重，默认 REQUIRED_WEIGHT
     default_weight: credibility_score 为 None 时的默认值
-    skip_weight_check: 为 True 时即使权重不足也返回结果（用于可信度预热计算）
+    min_voters: 至少需要多少投票人（仅在可信度计算中使用，用于排除单张图片只有1票的情况）
     返回 'pass'/'fail'/None（权重不足时返回 None）
     """
     if required_weight is None:
         required_weight = REQUIRED_WEIGHT
 
+    unique_voters = len(set(r[0] for r in rows))
+    if min_voters is not None and unique_voters < min_voters:
+        return None
+
     w_pass = sum((r[2] if r[2] is not None else default_weight) for r in rows if r[1] == REVIEW_STATUS_PASS)
     w_fail = sum((r[2] if r[2] is not None else default_weight) for r in rows if r[1] == REVIEW_STATUS_FAIL)
 
-    if not skip_weight_check:
-        total_weight = w_pass + w_fail
-        if total_weight < required_weight:
-            return None
+    total_weight = w_pass + w_fail
+    if total_weight < required_weight:
+        return None
 
     return REVIEW_STATUS_PASS if w_pass >= w_fail else REVIEW_STATUS_FAIL
 
@@ -525,7 +528,8 @@ def submit_review(image_id: int, user_id: str, status: str):
         rows = cursor.fetchall()
         if not rows:
             continue
-        result = compute_weighted_result([(r[0], r[1], r[2]) for r in rows], skip_weight_check=True)
+        # 只有 ≥2 人投票的图片才计入可信度（排除自证合理）
+        result = compute_weighted_result([(r[0], r[1], r[2]) for r in rows], min_voters=2)
         if result is None:
             continue
         total += 1
