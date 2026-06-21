@@ -59,8 +59,8 @@ class StatsResponse(BaseModel):
     fail_count: int
     skip_count: int
     progress_percent: float
-    completed_images: int = 0  # 完成审核的图片数（5人投票且≥3通过）
-    disputed_count: int = 0  # 有争议的图片数（审核完毕但未通过/未不通过）
+    completed_images: int = 0  # 完成审核的图片数
+    disputed_count: int = 0  # 不再使用，保留兼容
     total_votes: int = 0  # 总投票数
 
 class RoleStatsResponse(BaseModel):

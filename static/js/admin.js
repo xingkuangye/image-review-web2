@@ -760,7 +760,6 @@ async function loadStats() {
         document.getElementById('totalVotes').textContent = stats.total_votes || 0;
         document.getElementById('totalCompleted').textContent = stats.completed_images;
         document.getElementById('totalPass').textContent = stats.pass_count || 0;
-        document.getElementById('totalDisputed').textContent = '可信度≥4.0判定';
         document.getElementById('totalFail').textContent = stats.fail_count || 0;
         
         // 角色统计
@@ -879,45 +878,6 @@ async function exportApproved() {
 }
 
 // ========== 争议图片导出 ==========
-async function exportDisputed() {
-    if (!confirm('确定要导出争议图片吗？\n加权投票系统下不再产生争议图片。')) return;
-    
-    const btn = event.target;
-    btn.textContent = '导出中...';
-    btn.disabled = true;
-    
-    try {
-        const response = await adminFetch('/api/admin/export-disputed', {
-            method: 'GET'
-        });
-        
-        const contentType = response.headers.get('content-type') || '';
-        
-        if (contentType.includes('application/json')) {
-            const data = await response.json();
-            alert(data.message || '暂无可导出图片');
-        } else if (contentType.includes('application/zip') || contentType.includes('application/octet-stream')) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = '争议图片.zip';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        } else {
-            alert('导出失败，未知响应格式');
-        }
-    } catch (e) {
-        console.error('导出失败:', e);
-        alert('导出失败: ' + e.message);
-    } finally {
-        btn.textContent = '导出争议图片';
-        btn.disabled = false;
-    }
-}
-
 // ========== 工具函数 ==========
 function escapeHtml(text) {
     const div = document.createElement('div');

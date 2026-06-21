@@ -511,11 +511,6 @@ async def get_roles():
     """获取所有角色"""
     return get_all_roles()
 
-@app.get("/api/admin/disputed-images")
-async def admin_get_disputed_images(x_admin_password: str = Header(None)):
-    """获取所有有争议的图片（需要管理员权限）"""
-    verify_admin(x_admin_password)
-    return get_disputed_images()
 
 @app.get("/api/settings")
 async def get_all_settings():
@@ -961,128 +956,7 @@ async def admin_export_approved(x_admin_password: str = Header(None)):
         conn.close()
 
 
-@app.get("/api/admin/export-disputed")
-async def admin_export_disputed(x_admin_password: str = Header(None)):
-    """导出所有有争议的图片（按角色分文件夹）"""
-    verify_admin(x_admin_password)
-    
-    # 使用服务函数获取争议图片
-    disputed_images = get_disputed_images()
-    
-    if not disputed_images:
-        return JSONResponse(content={"message": "暂无可导出图片", "count": 0})
-    
-    # 创建导出目录
-    export_dir = os.path.join(BASE_DIR, 'exports')
-    os.makedirs(export_dir, exist_ok=True)
-    
-    zip_filename = f"争议图片_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-    zip_path = os.path.join(export_dir, zip_filename)
-    
-    try:
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            total_count = 0
-            
-            # 按角色分组
-            role_images = {}
-            for img in disputed_images:
-                role_name = img.get('role_name') or f"角色{img.get('role_id')}"
-                if role_name not in role_images:
-                    role_images[role_name] = []
-                role_images[role_name].append(img)
-            
-            for role_name, images in role_images.items():
-                # 清理角色名称用于文件夹名
-                safe_folder_name = "".join(c for c in role_name if c.isalnum() or c in (' ', '-', '_')).strip()
-                if not safe_folder_name:
-                    safe_folder_name = "未分类"
-                
-                for img in images:
-                    img_path = img['path']
-                    if os.path.exists(img_path):
-                        arcname = os.path.join(safe_folder_name, os.path.basename(img_path))
-                        zipf.write(img_path, arcname)
-                        total_count += 1
-            
-            log_message(f"争议图片导出完成，共 {total_count} 张图片")
-        
-        return FileResponse(zip_path, filename=zip_filename, media_type='application/zip')
-        
-    except Exception as e:
-        log_message(f"导出失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/admin/settings")
-async def admin_get_settings(x_admin_password: str = Header(None)):
-    """获取所有设置"""
-    verify_admin(x_admin_password)
-    return get_settings_all()
-
-@app.put("/api/admin/settings/title")
-async def admin_update_title(title: str = Form(...), x_admin_password: str = Header(None)):
-    """更新页面标题"""
-    verify_admin(x_admin_password)
-    save_setting("title", title)
-    return {"success": True}
-
-@app.put("/api/admin/settings/icon")
-async def admin_update_icon(icon: str = Form(...), x_admin_password: str = Header(None)):
-    """更新页面图标"""
-    verify_admin(x_admin_password)
-    save_setting("icon", icon)
-    return {"success": True}
-
-@app.put("/api/admin/settings/notice")
-async def admin_update_notice(content: str = Form(...), x_admin_password: str = Header(None)):
-    """更新公告"""
-    verify_admin(x_admin_password)
-    import time
-    save_setting("notice", content)
-    save_setting("notice_version", str(int(time.time())))
-    return {"success": True}
-
-@app.put("/api/admin/settings/review-rule")
-async def admin_update_review_rule(content: str = Form(...), x_admin_password: str = Header(None)):
-    """更新审核规则"""
-    verify_admin(x_admin_password)
-    save_setting("review_rule", content)
-    return {"success": True}
-
-@app.put("/api/admin/settings/auto-backup-time")
-async def admin_update_auto_backup_time(backup_time: str = Form(...), x_admin_password: str = Header(None)):
-    """更新自动备份时间"""
-    verify_admin(x_admin_password)
-    save_setting("auto_backup_time", backup_time)
-    log_message(f"更新自动备份时间: {backup_time}")
-    return {"success": True}
-
-@app.put("/api/admin/settings/auto-backup-enabled")
-async def admin_update_auto_backup_enabled(enabled: str = Form(...), x_admin_password: str = Header(None)):
-    """更新自动备份启用状态"""
-    verify_admin(x_admin_password)
-    save_setting("auto_backup_enabled", enabled.lower())
-    log_message(f"更新自动备份启用状态: {enabled}")
-    return {"success": True}
-
-@app.put("/api/admin/settings/backup-retention-days")
-async def admin_update_backup_retention_days(days: str = Form(...), x_admin_password: str = Header(None)):
-    """更新备份保留天数"""
-    verify_admin(x_admin_password)
-    save_setting("backup_retention_days", days)
-    log_message(f"更新备份保留天数: {days}天")
-    return {"success": True}
-
-@app.post("/api/admin/backup/now")
-async def admin_backup_now(x_admin_password: str = Header(None)):
-    """立即执行备份"""
-    verify_admin(x_admin_password)
-    from backend.backup import create_backup, cleanup_old_backups
-    backup_path = create_backup()
-    if backup_path:
-        cleanup_old_backups(get_backup_retention_days())
-        log_message(f"管理员手动触发备份成功")
-        return {"success": True, "message": "备份成功", "path": backup_path}
-    return {"success": False, "message": "备份失败"}
 
 
 @app.get("/api/admin/health")

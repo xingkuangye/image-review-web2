@@ -17,8 +17,6 @@ REQUIRED_WEIGHT = 4.0  # 累计可信度达到此值后判定结果
 REVIEW_STATUS_PASS = 'pass'
 REVIEW_STATUS_FAIL = 'fail'
 REVIEW_STATUS_SKIP = 'skip'
-REVIEW_STATUS_DISPUTED = 'disputed'  # 有争议（3人意见不一致）
-REVIEW_STATUSES = (REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, REVIEW_STATUS_DISPUTED)
 
 # 管理员密码文件路径
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -767,39 +765,6 @@ def get_image_final_statuses_batch(image_ids):
     finally:
         conn.close()
     return result
-
-def get_disputed_images() -> List[dict]:
-    """获取所有有争议的图片"""
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    # 找出有分歧的图片（不是全部通过，也不是全部不通过）
-    cursor.execute('''
-        SELECT DISTINCT i.id, i.path, i.role_id, r.name as role_name
-        FROM images i
-        LEFT JOIN roles r ON i.role_id = r.id
-        WHERE EXISTS (
-            SELECT 1 FROM reviews rev
-            WHERE rev.image_id = i.id AND rev.status = 'pass'
-        )
-        AND EXISTS (
-            SELECT 1 FROM reviews rev
-            WHERE rev.image_id = i.id AND rev.status = 'fail'
-        )
-        ORDER BY i.id DESC
-    ''')
-    
-    images = []
-    for row in cursor.fetchall():
-        images.append({
-            'id': row['id'],
-            'path': row['path'],
-            'role_id': row['role_id'],
-            'role_name': row['role_name']
-        })
-    
-    conn.close()
-    return images
 
 # ============
 
