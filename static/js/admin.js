@@ -754,7 +754,7 @@ async function loadStats() {
         
         // 总体统计
         const stats = data.overall;
-        document.getElementById('totalProgress').style.width = stats.progress_percent + '%';
+        document.getElementById('totalProgress').style.width = Math.max(stats.progress_percent, 0.5) + '%';
         document.getElementById('totalProgressText').textContent = stats.progress_percent.toFixed(1) + '%';
         document.getElementById('totalImages').textContent = stats.total_images;
         document.getElementById('totalVotes').textContent = stats.total_votes || 0;
@@ -775,7 +775,7 @@ async function loadStats() {
                         <span class="role-stats-percent">${item.stats.progress_percent.toFixed(1)}%</span>
                     </div>
                     <div class="role-stats-bar">
-                        <div class="role-stats-fill" style="width: ${item.stats.progress_percent}%"></div>
+                        <div class="role-stats-fill" style="width: ${Math.max(item.stats.progress_percent, 0.5)}%"></div>
                     </div>
                     <div class="role-stats-details">
                         <span>总图片: ${item.stats.total_images}</span>
