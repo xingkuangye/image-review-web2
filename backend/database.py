@@ -29,7 +29,7 @@ def init_db():
             created_at TEXT NOT NULL,
             last_active TEXT NOT NULL,
             is_banned INTEGER DEFAULT 0,
-            user_token TEXT,
+            user_token TEXT UNIQUE,
             credibility_score REAL,
             credibility_agrees INTEGER DEFAULT 0,
             credibility_total INTEGER DEFAULT 0
@@ -113,6 +113,10 @@ def migrate_add_credibility():
             pass
         try:
             cursor.execute("ALTER TABLE users ADD COLUMN user_token TEXT")
+        except Exception:
+            pass
+        try:
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_token ON users(user_token)")
         except Exception:
             pass
         conn.commit()
