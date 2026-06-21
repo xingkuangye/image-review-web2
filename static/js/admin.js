@@ -827,11 +827,12 @@ function renderRoleImages(images) {
             var vicon = v.vote === 'pass' ? '\u2714' : v.vote === 'fail' ? '\u2718' : '\u2014';
             var vcls = 'voter ' + (v.vote === 'pass' ? 'v-pass' : v.vote === 'fail' ? 'v-fail' : 'v-skip');
             var uid = v.user_id ? v.user_id.substring(0, 8) : '';
-            return '<div class="' + vcls + '"><span class="v-icon">' + vicon + '</span><span class="v-name">' + escapeHtml(v.nickname) + '</span><span class="v-uid">#' + escapeHtml(uid) + '</span><span class="v-cred">' + (v.cred * 100).toFixed(0) + '%</span></div>';
+            var initial = v.nickname ? v.nickname.charAt(0) : '?';
+            return '<div class="' + vcls + '"><span class="v-avatar">' + escapeHtml(initial) + '</span><span class="v-name">' + escapeHtml(v.nickname) + '</span><span class="v-uid">#' + escapeHtml(uid) + '</span><span class="v-cred">' + (v.cred * 100).toFixed(0) + '%</span></div>';
         }).join('');
         var imgId = img.id;
         var failSvg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 150"><rect fill="#1a1a2e" width="260" height="150"/><text x="130" y="75" text-anchor="middle" fill="#555" font-size="13">\u65e0\u56fe</text></svg>');
-        return '<div class="rimg-card"><div class="rimg-img"><img src="/api/image/' + imgId + '/thumbnail?t=' + imgId + '" loading="lazy" onerror="this.src=\'' + failSvg + '\'"></div><div class="rimg-body"><div class="rimg-hdr"><span class="rimg-id">#' + imgId + '</span><span class="' + badgeClass + '">' + statusBadge + '</span></div><div class="rimg-bar"><div class="rimg-bar-fill rimg-bar-pass" style="flex:' + Math.max(img.w_pass, 0.01) + '"></div><div class="rimg-bar-fill rimg-bar-fail" style="flex:' + Math.max(img.w_fail, 0.01) + '"></div></div><div class="rimg-weights"><span class="w-pass">\u2705 ' + img.w_pass.toFixed(1) + '</span><span class="w-fail">\u274c ' + img.w_fail.toFixed(1) + '</span></div><div class="rimg-voters">' + votersHtml + '</div></div></div>';
+        return '<div class="rimg-card"><div class="rimg-img"><img src="/api/image/' + imgId + '/thumbnail?t=' + imgId + '" loading="lazy" onerror="this.src=\'' + failSvg + '\'"></div><div class="rimg-body"><div class="rimg-hdr"><span class="rimg-id">#' + imgId + '</span><span class="' + badgeClass + '">' + statusBadge + '</span></div><div class="rimg-bar"><div class="rimg-bar-fill rimg-bar-pass" style="flex:' + Math.max(img.w_pass, 0.01) + '"></div><div class="rimg-bar-fill rimg-bar-fail" style="flex:' + Math.max(img.w_fail, 0.01) + '"></div></div><div class="rimg-weights"><span class="w-pass"><span class="w-dot g"></span>' + img.w_pass.toFixed(1) + '</span><span class="w-fail"><span class="w-dot r"></span>' + img.w_fail.toFixed(1) + '</span></div><div class="rimg-voters">' + votersHtml + '</div></div></div>';
     }).join('');
 }
 
