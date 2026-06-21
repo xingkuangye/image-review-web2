@@ -814,6 +814,54 @@ async def admin_ban_user(user_id: str, banned: bool = Form(True), x_admin_passwo
     log_message(f"用户 {user_id} {'封禁' if banned else '解封'}")
     return {"success": True}
 
+@app.get("/api/admin/role-images/{role_id}")
+async def admin_role_images(role_id: int, x_admin_password: str = Header(None)):
+    """获取角色下每张图片的审核状态详情"""
+    verify_admin(x_admin_password)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, path, created_at FROM images WHERE role_id = ? ORDER BY id", (role_id,))
+    images = cursor.fetchall()
+
+    result = []
+    for img in images:
+        image_id, path, created_at = img
+        cursor.execute("""
+            SELECT r.user_id, u.nickname, r.status, u.credibility_score
+            FROM reviews r
+            JOIN users u ON r.user_id = u.id
+            WHERE r.image_id = ?
+        """, (image_id,))
+        votes = [{"user_id": r[0], "nickname": r[1], "vote": r[2], "cred": r[3] or 0.5} for r in cursor.fetchall()]
+
+        non_skip = [v for v in votes if v["vote"] in ("pass", "fail")]
+        total_weight = sum(v["cred"] for v in non_skip)
+        w_pass = sum(v["cred"] for v in non_skip if v["vote"] == "pass")
+        w_fail = total_weight - w_pass
+
+        status = "pending"
+        resolution = None
+        if total_weight >= 4.0:
+            resolution = "pass" if w_pass >= w_fail else "fail"
+            status = "completed"
+
+        result.append({
+            "id": image_id,
+            "path": path,
+            "created_at": created_at,
+            "total_weight": round(total_weight, 2),
+            "w_pass": round(w_pass, 2),
+            "w_fail": round(w_fail, 2),
+            "votes": len(non_skip),
+            "status": status,
+            "resolution": resolution,
+            "voters": votes,
+        })
+
+    conn.close()
+    return {"images": result, "total": len(result)}
+
+
 @app.get("/api/admin/stats")
 async def admin_get_stats(x_admin_password: str = Header(None)):
     """获取后台统计"""

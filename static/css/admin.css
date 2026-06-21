@@ -696,6 +696,64 @@ body {
 }
 .role-stats-details span { font-weight: 600; color: var(--text-primary); }
 
+/* Role images grid */
+.role-images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    padding: 16px 20px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.role-image-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+}
+.role-image-card:hover { border-color: var(--border-medium); }
+.role-image-card .img-wrap {
+    width: 100%;
+    height: 150px;
+    background: rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.role-image-card .img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.role-image-card .card-body {
+    padding: 10px 12px;
+}
+.role-image-card .card-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+.role-image-card .card-row:last-child { margin-bottom: 0; }
+.role-image-card .card-label { color: var(--text-muted); }
+.role-image-card .card-value { font-weight: 500; }
+.role-image-card .card-voters {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 11px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+}
+.role-image-card .card-voters .voter-item { color: var(--text-muted); }
+.role-image-card .card-voters .voter-item .voter-name { color: var(--text-secondary); }
+.role-image-card .badge-pending { color: var(--accent-amber); }
+.role-image-card .badge-pass { color: var(--accent-green); font-weight: 600; }
+.role-image-card .badge-fail { color: var(--accent-red); font-weight: 600; }
+
 /* ========== Chart ========== */
 .chart-container {
     padding: 16px 20px;
