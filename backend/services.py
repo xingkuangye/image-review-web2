@@ -508,32 +508,37 @@ def submit_review(image_id: int, user_id: str, status: str):
     )
     conn.commit()
 
-    # 用当前加权结果作为「暂定结果」重算本次投票人的可信度
+    # 批量查询：一次性获取该用户参与的所有图片的全部投票
     cursor.execute('''
-        SELECT DISTINCT r.image_id
+        SELECT r.image_id, r.user_id, r.status, COALESCE(u.credibility_score, 0.5)
         FROM reviews r
-        WHERE r.user_id = ? AND r.status IN ('pass', 'fail')
+        JOIN users u ON r.user_id = u.id
+        WHERE r.image_id IN (
+            SELECT DISTINCT r2.image_id
+            FROM reviews r2
+            WHERE r2.user_id = ? AND r2.status IN ('pass', 'fail')
+        )
+        AND r.status IN ('pass', 'fail')
+        ORDER BY r.image_id
     ''', (user_id,))
-    all_img_ids = [r[0] for r in cursor.fetchall()]
+    all_rows = cursor.fetchall()
     
     total = 0
     agrees = 0
-    for img in all_img_ids:
-        cursor.execute('''
-            SELECT r.user_id, r.status, COALESCE(u.credibility_score, 0.5)
-            FROM reviews r
-            JOIN users u ON r.user_id = u.id
-            WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
-        ''', (img,))
-        rows = cursor.fetchall()
-        if not rows:
-            continue
+    # 按 image_id 分组
+    i = 0
+    while i < len(all_rows):
+        img_id = all_rows[i][0]
+        group = []
+        while i < len(all_rows) and all_rows[i][0] == img_id:
+            group.append((all_rows[i][1], all_rows[i][2], all_rows[i][3]))
+            i += 1
         # 只有 ≥2 人投票的图片才计入可信度（排除自证合理）
-        result = compute_weighted_result([(r[0], r[1], r[2]) for r in rows], min_voters=2)
+        result = compute_weighted_result(group, min_voters=2)
         if result is None:
             continue
         total += 1
-        user_vote = next((r[1] for r in rows if r[0] == user_id), None)
+        user_vote = next((r[1] for r in group if r[0] == user_id), None)
         if user_vote == result:
             agrees += 1
 
