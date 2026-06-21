@@ -812,34 +812,27 @@ function closeRoleImages() {
 function renderRoleImages(images) {
     var container = document.getElementById('roleImagesList');
     if (!images || images.length === 0) {
-        container.innerHTML = '<p style="padding:20px;color:var(--text-muted);text-align:center;">暂无图片</p>';
+        container.innerHTML = '<p style="padding:30px;color:var(--text-muted);text-align:center;">暂无图片</p>';
         return;
     }
     container.innerHTML = images.map(function(img) {
-        var statusBadge = '';
+        var statusBadge, badgeClass;
         if (img.status === 'completed') {
-            statusBadge = img.resolution === 'pass'
-                ? '<span class="badge-pass">✅ 已通过</span>'
-                : '<span class="badge-fail">❌ 未通过</span>';
+            statusBadge = img.resolution === 'pass' ? '已通过' : '未通过';
+            badgeClass = 'badge badge-' + (img.resolution === 'pass' ? 'pass' : 'fail');
         } else {
-            statusBadge = '<span class="badge-pending">⏳ 审核中 (' + img.votes + '票, ' + img.total_weight + '/' + 4.0 + ')</span>';
+            statusBadge = '审核中 ' + img.total_weight.toFixed(1) + '/4.0';
+            badgeClass = 'badge badge-pending';
         }
         var votersHtml = img.voters.map(function(v) {
-            var vcolor = v.vote === 'pass' ? 'var(--accent-green)' : v.vote === 'fail' ? 'var(--accent-red)' : 'var(--text-muted)';
-            return '<span class="voter-item" style="color:' + vcolor + '">'
-                + escapeHtml(v.nickname) + '(' + (v.cred * 100).toFixed(0) + '%) → '
-                + (v.vote === 'pass' ? '通过' : v.vote === 'fail' ? '不通过' : '跳过')
-                + '</span>';
+            var vicon = v.vote === 'pass' ? '\u2714' : v.vote === 'fail' ? '\u2718' : '\u2014';
+            var vcls = 'voter ' + (v.vote === 'pass' ? 'v-pass' : v.vote === 'fail' ? 'v-fail' : 'v-skip');
+            var uid = v.user_id ? v.user_id.substring(0, 8) : '';
+            return '<div class="' + vcls + '"><span class="v-icon">' + vicon + '</span><span class="v-name">' + escapeHtml(v.nickname) + '</span><span class="v-uid">#' + escapeHtml(uid) + '</span><span class="v-cred">' + (v.cred * 100).toFixed(0) + '%</span></div>';
         }).join('');
         var imgId = img.id;
-        return '<div class="role-image-card">'
-            + '<div class="img-wrap"><img src="/api/image/' + imgId + '/thumbnail" loading="lazy" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 260 150%22><rect fill=%22%23333%22 width=%22260%22 height=%22150%22/><text x=%22130%22 y=%2275%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2214%22>加载失败</text></svg>\'"></div>'
-            + '<div class="card-body">'
-            + '<div class="card-row"><span class="card-label">#ID</span><span class="card-value">' + imgId + '</span></div>'
-            + '<div class="card-row"><span class="card-label">状态</span><span class="card-value">' + statusBadge + '</span></div>'
-            + '<div class="card-row"><span class="card-label">得票</span><span class="card-value">通过' + img.w_pass + ' / 不通过' + img.w_fail + '</span></div>'
-            + '<div class="card-voters">' + votersHtml + '</div>'
-            + '</div></div>';
+        var failSvg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 150"><rect fill="#1a1a2e" width="260" height="150"/><text x="130" y="75" text-anchor="middle" fill="#555" font-size="13">\u65e0\u56fe</text></svg>');
+        return '<div class="rimg-card"><div class="rimg-img"><img src="/api/image/' + imgId + '/thumbnail?t=' + imgId + '" loading="lazy" onerror="this.src=\'' + failSvg + '\'"></div><div class="rimg-body"><div class="rimg-hdr"><span class="rimg-id">#' + imgId + '</span><span class="' + badgeClass + '">' + statusBadge + '</span></div><div class="rimg-bar"><div class="rimg-bar-fill rimg-bar-pass" style="flex:' + Math.max(img.w_pass, 0.01) + '"></div><div class="rimg-bar-fill rimg-bar-fail" style="flex:' + Math.max(img.w_fail, 0.01) + '"></div></div><div class="rimg-weights"><span class="w-pass">\u2705 ' + img.w_pass.toFixed(1) + '</span><span class="w-fail">\u274c ' + img.w_fail.toFixed(1) + '</span></div><div class="rimg-voters">' + votersHtml + '</div></div></div>';
     }).join('');
 }
 
