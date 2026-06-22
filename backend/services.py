@@ -433,12 +433,12 @@ def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optiona
     row = cursor.fetchone()
     
     if row:
-        # 统计审核情况
+        # 统计审核情况（排除skip，只计pass/fail）
         cursor.execute('''
             SELECT status, COUNT(*) as count FROM reviews
-            WHERE image_id = ?
+            WHERE image_id = ? AND status != ?
             GROUP BY status
-        ''', (row['id'],))
+        ''', (row['id'], REVIEW_STATUS_SKIP))
         stats = {s['status']: s['count'] for s in cursor.fetchall()}
         
         # 检查用户是否已审核

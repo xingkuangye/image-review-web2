@@ -142,6 +142,7 @@ def update_all_credibility(required_weight=4.0):
         GROUP BY r.image_id
         HAVING COALESCE(SUM(COALESCE(u.credibility_score, 0.5)), 0) >= ?
     ''', (required_weight,))
+    completed_ids = [row[0] for row in cursor.fetchall()]
 
     for image_id in completed_ids:
         cursor.execute('''
