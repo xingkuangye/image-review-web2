@@ -434,9 +434,9 @@ def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optiona
         # 统计审核情况
         cursor.execute('''
             SELECT status, COUNT(*) as count FROM reviews
-            WHERE image_id = ? AND status != ?
+            WHERE image_id = ?
             GROUP BY status
-        ''', (row['id'], REVIEW_STATUS_SKIP))
+        ''', (row['id'],))
         stats = {s['status']: s['count'] for s in cursor.fetchall()}
         
         # 检查用户是否已审核
@@ -681,7 +681,7 @@ def get_overall_stats() -> StatsResponse:
     completed_pass = stats['completed_pass'] or 0
     completed_fail = stats['completed_fail'] or 0
     completed_disputed = 0
-    progress_percent = (total_reviews / (total_images * REQUIRED_VOTES) * 100) if total_images > 0 else 0
+    progress_percent = (completed_images / total_images * 100) if total_images > 0 else 0
     
     return StatsResponse(
         total_images=total_images,
@@ -744,7 +744,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
     completed_pass = stats["completed_pass"] or 0
     completed_fail = stats["completed_fail"] or 0
     completed_disputed = 0
-    progress_percent = (total_reviews / (total_images * REQUIRED_VOTES) * 100) if total_images > 0 else 0
+    progress_percent = (completed_images / total_images * 100) if total_images > 0 else 0
     
     return StatsResponse(
         total_images=total_images,
