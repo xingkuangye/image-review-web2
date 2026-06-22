@@ -125,7 +125,7 @@ def migrate_add_credibility():
             conn.close()
 
 
-def update_all_credibility():
+def update_all_credibility(required_weight=4.0):
     """全量重新计算所有用户可信度（加权投票）"""
     conn = get_db()
     cursor = conn.cursor()
@@ -133,16 +133,15 @@ def update_all_credibility():
     # 初始化所有用户
     cursor.execute("UPDATE users SET credibility_score = NULL, credibility_agrees = 0, credibility_total = 0")
 
-    # 找出所有完成审核的图片（权重 >= REQUIRED_WEIGHT）
+    # 找出所有完成审核的图片（权重 >= required_weight）
     cursor.execute('''
         SELECT r.image_id
         FROM reviews r
         LEFT JOIN users u ON r.user_id = u.id
         WHERE r.status IN ('pass', 'fail')
         GROUP BY r.image_id
-        HAVING COALESCE(SUM(COALESCE(u.credibility_score, 0.5)), 0) >= 4.0
-    ''')
-    completed_ids = [row[0] for row in cursor.fetchall()]
+        HAVING COALESCE(SUM(COALESCE(u.credibility_score, 0.5)), 0) >= ?
+    ''', (required_weight,))
 
     for image_id in completed_ids:
         cursor.execute('''
