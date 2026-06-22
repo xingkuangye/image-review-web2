@@ -248,16 +248,17 @@ def get_all_roles() -> List[RoleResponse]:
     role_base = {row['id']: dict(row) for row in cursor.fetchall()}
 
     # 分别统计通过和失败的数量
-    cursor.execute(f"""
+    cursor.execute("""
         SELECT img.role_id,
-               SUM(CASE WHEN rev.status = {REVIEW_STATUS_PASS!r} THEN 1 ELSE 0 END) as pass_count,
-               SUM(CASE WHEN rev.status = {REVIEW_STATUS_FAIL!r} THEN 1 ELSE 0 END) as fail_count
+               SUM(CASE WHEN rev.status = ? THEN 1 ELSE 0 END) as pass_count,
+               SUM(CASE WHEN rev.status = ? THEN 1 ELSE 0 END) as fail_count
         FROM reviews rev
         JOIN images img ON rev.image_id = img.id
-        WHERE rev.status != {REVIEW_STATUS_SKIP!r}
+        JOIN users u ON rev.user_id = u.id
+        WHERE rev.status != ?
         GROUP BY img.role_id, rev.image_id
-        HAVING COUNT(*) >= ?
-    """, (REQUIRED_VOTES,))
+        HAVING COALESCE(SUM(COALESCE(u.credibility_score, ?)), 0) >= ?
+    """, (REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, DEFAULT_CREDIBILITY, REQUIRED_WEIGHT))
 
     pass_fail_by_role = {}
     for row in cursor.fetchall():
@@ -390,9 +391,7 @@ def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optiona
     cursor = conn.cursor()
     
     # 使用 NOT EXISTS 替代 NOT IN，利用索引优化
-    params = [user_id, REVIEW_STATUS_SKIP, REQUIRED_WEIGHT]
-    
-    sql = f'''
+    sql = '''
         SELECT i.*, r.name as role_name
         FROM images i
         LEFT JOIN roles r ON i.role_id = r.id
@@ -401,14 +400,14 @@ def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optiona
             WHERE image_id = i.id AND user_id = ? AND status != ?
         )
             AND (
-            SELECT COALESCE(SUM(COALESCE(u.credibility_score, 0.5)), 0)
+            SELECT COALESCE(SUM(COALESCE(u.credibility_score, ?)), 0)
             FROM reviews rv
             LEFT JOIN users u ON rv.user_id = u.id
-            WHERE rv.image_id = i.id AND rv.status IN ({REVIEW_STATUS_PASS!r}, {REVIEW_STATUS_FAIL!r})
+            WHERE rv.image_id = i.id AND rv.status IN (?, ?)
         ) < ?
     '''
     if role_id:
-        sql = f'''
+        sql = '''
             SELECT i.*, r.name as role_name
             FROM images i
             LEFT JOIN roles r ON i.role_id = r.id
@@ -417,13 +416,15 @@ def get_image_for_review(user_id: str, role_id: Optional[int] = None) -> Optiona
                 WHERE image_id = i.id AND user_id = ? AND status != ?
             )
             AND (
-                SELECT COALESCE(SUM(COALESCE(u.credibility_score, {DEFAULT_CREDIBILITY})), 0)
+                SELECT COALESCE(SUM(COALESCE(u.credibility_score, ?)), 0)
                 FROM reviews rv
                 LEFT JOIN users u ON rv.user_id = u.id
-                WHERE rv.image_id = i.id AND rv.status IN ({REVIEW_STATUS_PASS!r}, {REVIEW_STATUS_FAIL!r})
+                WHERE rv.image_id = i.id AND rv.status IN (?, ?)
             ) < ?
             '''
-        params = [role_id, user_id, REVIEW_STATUS_SKIP, REQUIRED_WEIGHT]
+        params = [role_id, user_id, REVIEW_STATUS_SKIP, DEFAULT_CREDIBILITY, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REQUIRED_WEIGHT]
+    else:
+        params = [user_id, REVIEW_STATUS_SKIP, DEFAULT_CREDIBILITY, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REQUIRED_WEIGHT]
     
     cursor.execute(sql + ' ORDER BY RANDOM() LIMIT 1', params)
     
@@ -467,9 +468,7 @@ def get_next_image_id(user_id: str, role_id: Optional[int] = None, exclude_id: O
     conn = get_db()
     cursor = conn.cursor()
     
-    params = [user_id, REVIEW_STATUS_SKIP, REVIEW_STATUS_SKIP, REQUIRED_VOTES]
-    
-    sql = f'''
+    sql = '''
         SELECT i.id
         FROM images i
         LEFT JOIN roles r ON i.role_id = r.id
@@ -478,10 +477,13 @@ def get_next_image_id(user_id: str, role_id: Optional[int] = None, exclude_id: O
             WHERE image_id = i.id AND user_id = ? AND status != ?
         )
             AND (
-            SELECT COUNT(*) FROM reviews 
-            WHERE image_id = i.id AND status != ?
+            SELECT COALESCE(SUM(COALESCE(u.credibility_score, ?)), 0)
+            FROM reviews rv
+            LEFT JOIN users u ON rv.user_id = u.id
+            WHERE rv.image_id = i.id AND rv.status IN (?, ?)
         ) < ?
     '''
+    params = [user_id, REVIEW_STATUS_SKIP, DEFAULT_CREDIBILITY, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REQUIRED_WEIGHT]
     if role_id:
         sql += ' AND i.role_id = ?'
         params = params + [role_id]
@@ -517,18 +519,18 @@ def submit_review(image_id: int, user_id: str, status: str):
     # 注意：每次投票都重新检查所有历史图片以确保准确性（其他用户的后续投票
     # 可能改变之前的共识），这是一种权衡——用更多计算换取可信度实时精确。
     # 若用户投票历史极大（数万条），可考虑限制到最近 N 张图片或增量缓存。
-    cursor.execute(f'''
-        SELECT r.image_id, r.user_id, r.status, COALESCE(u.credibility_score, {DEFAULT_CREDIBILITY})
+    cursor.execute('''
+        SELECT r.image_id, r.user_id, r.status, COALESCE(u.credibility_score, ?)
         FROM reviews r
         JOIN users u ON r.user_id = u.id
         WHERE r.image_id IN (
             SELECT DISTINCT r2.image_id
             FROM reviews r2
-            WHERE r2.user_id = ? AND r2.status IN ({REVIEW_STATUS_PASS!r}, {REVIEW_STATUS_FAIL!r})
+            WHERE r2.user_id = ? AND r2.status IN (?, ?)
         )
-        AND r.status IN ({REVIEW_STATUS_PASS!r}, {REVIEW_STATUS_FAIL!r})
+        AND r.status IN (?, ?)
         ORDER BY r.image_id
-    ''', (user_id,))
+    ''', (DEFAULT_CREDIBILITY, user_id, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL))
     all_rows = cursor.fetchall()
     
     # 按 image_id 分组为 dict[image_id] -> [(user_id, status, credibility)]
@@ -645,7 +647,7 @@ def get_overall_stats() -> StatsResponse:
     # 使用单个聚合查询获取所有统计数据
     # vote_count 只计算非 skip 的评审，用于判断完成度
     # pass_count/fail_count/skip_count 计算所有状态
-    cursor.execute(f'''
+    cursor.execute('''
         SELECT 
             COUNT(DISTINCT CASE WHEN vote_count > 0 THEN image_id END) as reviewed_images,
             SUM(vote_count) as total_reviews,
@@ -658,9 +660,9 @@ def get_overall_stats() -> StatsResponse:
         FROM (
             SELECT 
                 r.image_id,
-                COALESCE(SUM(CASE WHEN r.status IN ({REVIEW_STATUS_PASS!r}, {REVIEW_STATUS_FAIL!r}) THEN COALESCE(u.credibility_score, {DEFAULT_CREDIBILITY}) ELSE 0 END), 0) as total_weight,
-                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, {DEFAULT_CREDIBILITY}) ELSE 0 END), 0) as pass_weight,
-                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, {DEFAULT_CREDIBILITY}) ELSE 0 END), 0) as fail_weight,
+                COALESCE(SUM(CASE WHEN r.status IN (?, ?) THEN COALESCE(u.credibility_score, ?) ELSE 0 END), 0) as total_weight,
+                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, ?) ELSE 0 END), 0) as pass_weight,
+                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, ?) ELSE 0 END), 0) as fail_weight,
                 COUNT(CASE WHEN r.status != ? THEN 1 END) as vote_count,
                 SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as pass_count,
                 SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as fail_count,
@@ -669,7 +671,7 @@ def get_overall_stats() -> StatsResponse:
             LEFT JOIN users u ON r.user_id = u.id
             GROUP BY r.image_id
         )
-    ''', (REQUIRED_WEIGHT, REQUIRED_WEIGHT, REQUIRED_WEIGHT, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
+    ''', (REQUIRED_WEIGHT, REQUIRED_WEIGHT, REQUIRED_WEIGHT, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, DEFAULT_CREDIBILITY, REVIEW_STATUS_PASS, DEFAULT_CREDIBILITY, REVIEW_STATUS_FAIL, DEFAULT_CREDIBILITY, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP))
     
     stats = cursor.fetchone()
     conn.close()
@@ -703,7 +705,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
     total_images = cursor.fetchone()['count']
     
     # 使用聚合查询（与 get_overall_stats 保持一致）
-    cursor.execute(f"""
+    cursor.execute("""
         SELECT 
             COUNT(DISTINCT image_id) as reviewed_images,
             SUM(vote_count) as total_reviews,
@@ -716,9 +718,9 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
         FROM (
             SELECT 
                 r.image_id,
-                COALESCE(SUM(CASE WHEN r.status IN ({REVIEW_STATUS_PASS!r}, {REVIEW_STATUS_FAIL!r}) THEN COALESCE(u.credibility_score, {DEFAULT_CREDIBILITY}) ELSE 0 END), 0) as total_weight,
-                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, {DEFAULT_CREDIBILITY}) ELSE 0 END), 0) as pass_weight,
-                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, {DEFAULT_CREDIBILITY}) ELSE 0 END), 0) as fail_weight,
+                COALESCE(SUM(CASE WHEN r.status IN (?, ?) THEN COALESCE(u.credibility_score, ?) ELSE 0 END), 0) as total_weight,
+                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, ?) ELSE 0 END), 0) as pass_weight,
+                COALESCE(SUM(CASE WHEN r.status = ? THEN COALESCE(u.credibility_score, ?) ELSE 0 END), 0) as fail_weight,
                 COUNT(CASE WHEN r.status != ? THEN 1 END) as vote_count,
                 SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as pass_count,
                 SUM(CASE WHEN r.status = ? THEN 1 ELSE 0 END) as fail_count,
@@ -729,7 +731,7 @@ def get_role_stats(role_id: int) -> Optional[StatsResponse]:
             WHERE i.role_id = ?
             GROUP BY r.image_id
         )
-    """, (REQUIRED_WEIGHT, REQUIRED_WEIGHT, REQUIRED_WEIGHT, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, role_id))
+    """, (REQUIRED_WEIGHT, REQUIRED_WEIGHT, REQUIRED_WEIGHT, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, DEFAULT_CREDIBILITY, REVIEW_STATUS_PASS, DEFAULT_CREDIBILITY, REVIEW_STATUS_FAIL, DEFAULT_CREDIBILITY, REVIEW_STATUS_SKIP, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL, REVIEW_STATUS_SKIP, role_id))
     
     stats = cursor.fetchone()
     conn.close()
@@ -761,12 +763,12 @@ def get_image_final_status(image_id: int) -> Optional[str]:
     """获取图片最终审核状态（可信度加权）"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute(f'''
+    cursor.execute('''
         SELECT r.user_id, r.status, u.credibility_score
         FROM reviews r
         JOIN users u ON r.user_id = u.id
-        WHERE r.image_id = ? AND r.status IN ({REVIEW_STATUS_PASS!r}, {REVIEW_STATUS_FAIL!r})
-    ''', (image_id,))
+        WHERE r.image_id = ? AND r.status IN (?, ?)
+    ''', (image_id, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL))
     rows = cursor.fetchall()
     conn.close()
     return compute_weighted_result(rows)
@@ -787,12 +789,12 @@ def get_image_final_statuses_batch(image_ids):
     try:
         cursor = conn.cursor()
         for img_id in validated_ids:
-            cursor.execute(f'''
+            cursor.execute('''
                 SELECT r.user_id, r.status, u.credibility_score
                 FROM reviews r
                 JOIN users u ON r.user_id = u.id
-                WHERE r.image_id = ? AND r.status IN ({REVIEW_STATUS_PASS!r}, {REVIEW_STATUS_FAIL!r})
-            ''', (img_id,))
+                WHERE r.image_id = ? AND r.status IN (?, ?)
+            ''', (img_id, REVIEW_STATUS_PASS, REVIEW_STATUS_FAIL))
             rows = cursor.fetchall()
             result[img_id] = compute_weighted_result(rows)
     finally:
