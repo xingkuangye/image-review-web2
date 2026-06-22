@@ -126,31 +126,41 @@ def migrate_add_credibility():
 
 
 def update_all_credibility():
-    """全量重新计算所有用户可信度"""
+    """全量重新计算所有用户可信度（加权投票）"""
     conn = get_db()
     cursor = conn.cursor()
-
-    # 找到已完成3票且有明确结果的图片
-    cursor.execute('''
-        SELECT image_id,
-               CASE WHEN SUM(CASE WHEN status = 'pass' THEN 1 ELSE 0 END) >= 2
-                    THEN 'pass' ELSE 'fail' END AS final_result
-        FROM reviews
-        WHERE status IN ('pass', 'fail')
-        GROUP BY image_id
-        HAVING COUNT(*) = 3
-    ''')
-    completed = {(row[0], row[1]) for row in cursor.fetchall()}
 
     # 初始化所有用户
     cursor.execute("UPDATE users SET credibility_score = NULL, credibility_agrees = 0, credibility_total = 0")
 
-    for image_id, final_result in completed:
+    # 找出所有完成审核的图片（权重 >= REQUIRED_WEIGHT）
+    cursor.execute('''
+        SELECT r.image_id
+        FROM reviews r
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.status IN ('pass', 'fail')
+        GROUP BY r.image_id
+        HAVING COALESCE(SUM(COALESCE(u.credibility_score, 0.5)), 0) >= 4.0
+    ''')
+    completed_ids = [row[0] for row in cursor.fetchall()]
+
+    for image_id in completed_ids:
         cursor.execute('''
-            SELECT user_id, status FROM reviews
-            WHERE image_id = ? AND status IN ('pass', 'fail')
+            SELECT r.user_id, r.status, COALESCE(u.credibility_score, 0.5)
+            FROM reviews r
+            LEFT JOIN users u ON r.user_id = u.id
+            WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
         ''', (image_id,))
-        for user_id, vote in cursor.fetchall():
+        rows = cursor.fetchall()
+
+        if len(set(r[0] for r in rows)) < 2:
+            continue
+
+        w_pass = sum(r[2] for r in rows if r[1] == 'pass')
+        w_fail = sum(r[2] for r in rows if r[1] == 'fail')
+        final_result = 'pass' if w_pass >= w_fail else 'fail'
+
+        for user_id, vote, _ in rows:
             agrees = 1 if vote == final_result else 0
             cursor.execute('''
                 UPDATE users SET

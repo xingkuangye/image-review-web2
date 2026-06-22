@@ -754,7 +754,7 @@ async function loadStats() {
         
         // 总体统计
         const stats = data.overall;
-        document.getElementById('totalProgress').style.width = Math.max(stats.progress_percent, 0.5) + '%';
+        document.getElementById('totalProgress').style.width = stats.progress_percent + '%';
         document.getElementById('totalProgressText').textContent = stats.progress_percent.toFixed(1) + '%';
         document.getElementById('totalImages').textContent = stats.total_images;
         document.getElementById('totalVotes').textContent = stats.total_votes || 0;
@@ -775,7 +775,7 @@ async function loadStats() {
                         <span class="role-stats-percent">${item.stats.progress_percent.toFixed(1)}%</span>
                     </div>
                     <div class="role-stats-bar">
-                        <div class="role-stats-fill" style="width: ${Math.max(item.stats.progress_percent, 0.5)}%"></div>
+                        <div class="role-stats-fill" style="width: ${item.stats.progress_percent}%"></div>
                     </div>
                     <div class="role-stats-details">
                         <span>总图片: ${item.stats.total_images}</span>
@@ -857,7 +857,7 @@ function renderRoleImages(images) {
 
 // ========== 导出功能 ==========
 async function exportApproved() {
-    if (!confirm('确定要导出所有审核通过的图片吗？\n审核通过条件：至少5人投票，且通过>=3人\n图片将按角色分文件夹打包。')) return;
+    if (!confirm('确定要导出所有审核通过的图片吗？\n审核通过条件：累计可信度权重≥4.0\n图片将按角色分文件夹打包。')) return;
     
     const btn = event.target;
     btn.textContent = '导出中...';

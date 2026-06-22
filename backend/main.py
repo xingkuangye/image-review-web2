@@ -236,7 +236,7 @@ async def get_user_by_token(
         raise HTTPException(status_code=400, detail="缺少令牌")
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE user_token = ?", (x_user_token,))
+    cursor.execute("SELECT id FROM users WHERE user_token = ?", (token,))
     row = cursor.fetchone()
     conn.close()
     if not row:

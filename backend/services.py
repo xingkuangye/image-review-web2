@@ -43,6 +43,8 @@ def compute_weighted_result(rows, required_weight=None, default_weight=DEFAULT_C
     total_weight = w_pass + w_fail
     if total_weight < required_weight:
         return None
+    if w_pass == 0 and w_fail == 0:
+        return None
 
     return REVIEW_STATUS_PASS if w_pass >= w_fail else REVIEW_STATUS_FAIL
 
