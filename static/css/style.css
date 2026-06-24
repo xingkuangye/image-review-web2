@@ -30,7 +30,34 @@
     --input-bg: rgba(255,255,255,0.04);
     --input-border-focus: rgba(91, 141, 239, 0.4);
     --input-shadow-focus: rgba(91, 141, 239, 0.08);
+
+    /* Theme-aware accent variables (override in body.golden-theme) */
+    --theme-accent: #5b8def;
+    --theme-accent-light: rgba(91, 141, 239, 0.08);
+    --theme-accent-hover: rgba(91, 141, 239, 0.15);
+    --theme-kbd-bg: rgba(91, 141, 239, 0.12);
+    --theme-kbd-border: rgba(91, 141, 239, 0.2);
+    --theme-glow: 0 0 20px rgba(91, 141, 239, 0.1);
+    --theme-nav-border: transparent;
+    --theme-nav-shadow: none;
+    --theme-progress: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+    --theme-top-progress: linear-gradient(90deg, transparent, var(--accent-blue));
+    --theme-badge-grad: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    --theme-nickname-bg: rgba(255,255,255,0.06);
+    --theme-nickname-border: var(--border-subtle);
+    --theme-nickname-hover-bg: rgba(255,255,255,0.1);
+    --theme-nickname-hover-border: var(--border-medium);
+    --theme-image-border: var(--border-subtle);
+    --theme-image-glow: var(--image-container-glow);
+    --theme-accent-text: var(--text-secondary);
+    --theme-mobile-btn-active: rgba(255,255,255,0.08);
+    --theme-spinner-track: rgba(255,255,255,0.08);
+    --theme-spinner-top: var(--accent-blue);
+    --theme-rule-btn-hover-bg: rgba(255,255,255,0.04);
+    --theme-btn-shadow: none;
+    --theme-nickname-color: var(--text-primary);
 }
+
 
 /* Light theme */
 [data-theme="light"] {
@@ -176,13 +203,13 @@ body {
 .nickname {
     font-size: 14px; font-weight: 500;
     cursor: pointer; padding: 5px 12px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid var(--border-subtle);
+    background: var(--theme-nickname-bg, rgba(255,255,255,0.06));
+    border: 1px solid var(--theme-nickname-border, var(--border-subtle));
     border-radius: 8px;
     transition: all 0.2s;
-    color: var(--text-primary);
+    color: var(--theme-nickname-color, var(--text-primary));
 }
-.nickname:hover { background: rgba(255,255,255,0.1); border-color: var(--border-medium); }
+.nickname:hover { background: var(--theme-nickname-hover-bg, rgba(255,255,255,0.1)); border-color: var(--theme-nickname-hover-border, var(--border-medium)); }
 
 /* 金名样式（仅浅色模式生效） */
 .nickname.golden {
@@ -198,98 +225,119 @@ body {
     font-weight: 700;
 }
 
-/* 金名主题 — 浅色模式下金色界面 */
+/* 金名主题 — 浅色模式下金色界面（通过 CSS 变量覆盖） */
 [data-theme="light"] body.golden-theme {
-    --gold: #b8860b;
-    --gold-light: #ffd700;
-    --gold-bg: rgba(255, 215, 0, 0.06);
+    --theme-accent: #b8860b;
+    --theme-accent-light: rgba(218,165,32,0.08);
+    --theme-accent-hover: rgba(218,165,32,0.15);
+    --theme-kbd-bg: rgba(184, 134, 11, 0.15);
+    --theme-kbd-border: rgba(184, 134, 11, 0.25);
+    --theme-glow: 0 0 20px rgba(255, 215, 0, 0.15);
+    --theme-nav-border: #b8860b;
+    --theme-nav-shadow: 0 2px 24px rgba(184, 134, 11, 0.12);
+    --theme-progress: linear-gradient(90deg, #b8860b, #ffd700, #b8860b);
+    --theme-top-progress: linear-gradient(90deg, #b8860b, #ffd700);
+    --theme-badge-grad: linear-gradient(135deg, #b8860b, #ffd700);
+    --theme-nickname-bg: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,193,7,0.08));
+    --theme-nickname-border: #b8860b;
+    --theme-nickname-color: #8b6914;
+    --theme-nickname-hover-bg: rgba(255,215,0,0.2);
+    --theme-nickname-hover-border: #ffd700;
+    --theme-image-border: rgba(184, 134, 11, 0.2);
+    --theme-image-glow: 0 0 40px rgba(255, 215, 0, 0.06), 0 0 0 1px rgba(184, 134, 11, 0.1);
+    --theme-accent-text: #b8860b;
+    --theme-mobile-btn-active: rgba(255,215,0,0.15);
+    --theme-spinner-track: rgba(184, 134, 11, 0.15);
+    --theme-spinner-top: #b8860b;
+    --theme-rule-btn-hover-bg: rgba(255,215,0,0.1);
+    --theme-btn-shadow: 0 0 0 0.5px rgba(184, 134, 11, 0.15);
+    /* Kept for backwards compat - golden overrides all theme-* vars above */
 }
+
 [data-theme="light"] body.golden-theme .navbar {
-    border-bottom: 1px solid var(--gold);
-    box-shadow: 0 2px 24px rgba(184, 134, 11, 0.12);
+    border-bottom: 1px solid var(--theme-nav-border);
+    box-shadow: var(--theme-nav-shadow);
 }
 [data-theme="light"] body.golden-theme .btn-pass,
 [data-theme="light"] body.golden-theme .btn-fail,
 [data-theme="light"] body.golden-theme .btn-download,
 [data-theme="light"] body.golden-theme .btn-prev,
 [data-theme="light"] body.golden-theme .btn-skip {
-    border-color: var(--gold);
-    color: var(--gold);
-    background: var(--gold-bg);
-    box-shadow: 0 0 0 0.5px rgba(184, 134, 11, 0.15);
+    border-color: var(--theme-accent);
+    color: var(--theme-accent);
+    background: var(--theme-accent-light);
+    box-shadow: var(--theme-btn-shadow);
 }
 [data-theme="light"] body.golden-theme .btn-pass:hover,
 [data-theme="light"] body.golden-theme .btn-fail:hover,
 [data-theme="light"] body.golden-theme .btn-download:hover,
 [data-theme="light"] body.golden-theme .btn-prev:hover,
 [data-theme="light"] body.golden-theme .btn-skip:hover {
-    background: rgba(255, 215, 0, 0.15);
-    border-color: var(--gold-light);
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
+    background: var(--theme-accent-hover);
+    border-color: var(--theme-accent);
+    box-shadow: var(--theme-glow);
 }
 [data-theme="light"] body.golden-theme .btn-pass kbd,
 [data-theme="light"] body.golden-theme .btn-fail kbd,
 [data-theme="light"] body.golden-theme .btn-skip kbd,
 [data-theme="light"] body.golden-theme .btn-prev kbd {
-    background: rgba(184, 134, 11, 0.15);
-    color: var(--gold);
-    border-color: rgba(184, 134, 11, 0.25);
+    background: var(--theme-kbd-bg);
+    color: var(--theme-accent);
+    border-color: var(--theme-kbd-border);
 }
 [data-theme="light"] body.golden-theme .progress-fill {
-    background: linear-gradient(90deg, #b8860b, #ffd700, #b8860b);
+    background: var(--theme-progress);
 }
 [data-theme="light"] body.golden-theme .top-progress-fill {
-    background: linear-gradient(90deg, #b8860b, #ffd700);
+    background: var(--theme-top-progress);
 }
-[data-theme="light"] body.golden-theme .complete-count {
-    color: var(--gold);
-}
+[data-theme="light"] body.golden-theme .complete-count,
 [data-theme="light"] body.golden-theme .progress-label,
 [data-theme="light"] body.golden-theme .progress-detail,
 [data-theme="light"] body.golden-theme .complete-label,
 [data-theme="light"] body.golden-theme .complete-total,
 [data-theme="light"] body.golden-theme .review-count {
-    color: var(--gold);
+    color: var(--theme-accent-text);
 }
 [data-theme="light"] body.golden-theme .nickname {
-    border-color: var(--gold);
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(255, 193, 7, 0.08));
-    color: #8b6914;
+    border-color: var(--theme-nickname-border);
+    background: var(--theme-nickname-bg);
+    color: var(--theme-nickname-color);
     font-weight: 700;
 }
 [data-theme="light"] body.golden-theme .nickname:hover {
-    background: rgba(255, 215, 0, 0.2);
-    border-color: var(--gold-light);
+    background: var(--theme-nickname-hover-bg);
+    border-color: var(--theme-nickname-hover-border);
 }
 [data-theme="light"] body.golden-theme .image-container {
-    border-color: rgba(184, 134, 11, 0.2);
-    box-shadow: 0 0 40px rgba(255, 215, 0, 0.06), 0 0 0 1px rgba(184, 134, 11, 0.1);
+    border-color: var(--theme-image-border);
+    box-shadow: var(--theme-image-glow);
 }
 [data-theme="light"] body.golden-theme .btn-rule,
 [data-theme="light"] body.golden-theme .btn-role-select,
 [data-theme="light"] body.golden-theme .btn-role-select-inline {
-    border-color: var(--gold);
-    color: var(--gold);
+    border-color: var(--theme-accent);
+    color: var(--theme-accent);
 }
 [data-theme="light"] body.golden-theme .btn-rule:hover,
 [data-theme="light"] body.golden-theme .btn-role-select:hover {
-    background: rgba(255, 215, 0, 0.1);
+    background: var(--theme-rule-btn-hover-bg);
 }
 [data-theme="light"] body.golden-theme .image-role-badge {
-    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    background: var(--theme-badge-grad);
     color: #fff;
     border: none;
 }
 [data-theme="light"] body.golden-theme .mobile-bottom-nav .nav-btn {
-    color: var(--gold);
-    border-color: var(--gold);
+    color: var(--theme-accent);
+    border-color: var(--theme-accent);
 }
 [data-theme="light"] body.golden-theme .mobile-bottom-nav .nav-btn:active {
-    background: rgba(255, 215, 0, 0.15);
+    background: var(--theme-mobile-btn-active);
 }
 [data-theme="light"] body.golden-theme .loading-spinner {
-    border-color: rgba(184, 134, 11, 0.15);
-    border-top-color: var(--gold);
+    border-color: var(--theme-spinner-track);
+    border-top-color: var(--theme-spinner-top);
 }
 
 .review-count {
@@ -367,7 +415,7 @@ body {
     border: 1px solid rgba(74, 222, 128, 0.15);
 }
 .complete-label { color: var(--text-muted); }
-.complete-count { color: var(--accent-green); font-weight: 700; font-size: 14px; }
+.complete-count { color: var(--theme-accent-text, var(--accent-green)); font-weight: 700; font-size: 14px; }
 .complete-total { color: var(--text-muted); }
 
 /* Role progress badge */
