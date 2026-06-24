@@ -564,15 +564,9 @@ def submit_review(image_id: int, user_id: str, status: str):
     else:
         # 无完成图片时，给尚无信用分的用户一个默认值，避免前台显示 NULL
         cursor.execute(
-            "SELECT credibility_score FROM users WHERE id = ?",
-            (user_id,)
+            "UPDATE users SET credibility_score = ? WHERE id = ? AND credibility_score IS NULL",
+            (DEFAULT_CREDIBILITY, user_id)
         )
-        existing = cursor.fetchone()
-        if existing and existing[0] is None:
-            cursor.execute(
-                "UPDATE users SET credibility_score = ? WHERE id = ?",
-                (DEFAULT_CREDIBILITY, user_id)
-            )
 
     conn.commit()
     conn.close()

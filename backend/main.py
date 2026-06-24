@@ -777,8 +777,8 @@ async def admin_recalc_credibility(x_admin_password: str = Header(None)):
     """全量重新计算所有用户可信度"""
     verify_admin(x_admin_password)
     from backend.database import update_all_credibility
-    from backend.services import REQUIRED_WEIGHT
-    update_all_credibility(required_weight=REQUIRED_WEIGHT)
+    from backend.services import REQUIRED_WEIGHT, DEFAULT_CREDIBILITY
+    update_all_credibility(required_weight=REQUIRED_WEIGHT, default_credibility=DEFAULT_CREDIBILITY)
     return {"success": True, "message": "可信度已重新计算"}
 
 
