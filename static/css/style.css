@@ -186,36 +186,54 @@ body {
 
 /* 金名样式（仅浅色模式生效） */
 .nickname.golden {
-    color: #b8860b;
+    color: #8b6914;
     font-weight: 700;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(255, 193, 7, 0.08));
+    border-color: #b8860b;
 }
 [data-theme="light"] .nickname.golden {
-    background: linear-gradient(135deg, #b8860b, #ffd700, #b8860b);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 193, 7, 0.1));
+    border-color: #b8860b;
+    color: #8b6914;
     font-weight: 700;
 }
 
-/* 金名主题 — 仅浅色模式生效 */
+/* 金名主题 — 浅色模式下金色界面 */
+[data-theme="light"] body.golden-theme {
+    --gold: #b8860b;
+    --gold-light: #ffd700;
+    --gold-bg: rgba(255, 215, 0, 0.06);
+}
 [data-theme="light"] body.golden-theme .navbar {
-    border-bottom: 1px solid rgba(255, 215, 0, 0.3);
-    box-shadow: 0 1px 20px rgba(255, 215, 0, 0.08);
+    border-bottom: 1px solid var(--gold);
+    box-shadow: 0 2px 24px rgba(184, 134, 11, 0.12);
 }
-[data-theme="light"] body.golden-theme .btn-pass {
-    border-color: rgba(255, 215, 0, 0.4);
-    color: #b8860b;
+[data-theme="light"] body.golden-theme .btn-pass,
+[data-theme="light"] body.golden-theme .btn-fail,
+[data-theme="light"] body.golden-theme .btn-download,
+[data-theme="light"] body.golden-theme .btn-prev,
+[data-theme="light"] body.golden-theme .btn-skip {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-bg);
+    box-shadow: 0 0 0 0.5px rgba(184, 134, 11, 0.15);
 }
-[data-theme="light"] body.golden-theme .btn-pass:hover {
-    background: rgba(255, 215, 0, 0.1);
-    border-color: rgba(255, 215, 0, 0.6);
+[data-theme="light"] body.golden-theme .btn-pass:hover,
+[data-theme="light"] body.golden-theme .btn-fail:hover,
+[data-theme="light"] body.golden-theme .btn-download:hover,
+[data-theme="light"] body.golden-theme .btn-prev:hover,
+[data-theme="light"] body.golden-theme .btn-skip:hover {
+    background: rgba(255, 215, 0, 0.15);
+    border-color: var(--gold-light);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
 }
-[data-theme="light"] body.golden-theme .btn-fail {
-    border-color: rgba(255, 215, 0, 0.4);
-    color: #b8860b;
-}
-[data-theme="light"] body.golden-theme .btn-fail:hover {
-    background: rgba(255, 215, 0, 0.1);
-    border-color: rgba(255, 215, 0, 0.6);
+[data-theme="light"] body.golden-theme .btn-pass kbd,
+[data-theme="light"] body.golden-theme .btn-fail kbd,
+[data-theme="light"] body.golden-theme .btn-skip kbd,
+[data-theme="light"] body.golden-theme .btn-prev kbd {
+    background: rgba(184, 134, 11, 0.15);
+    color: var(--gold);
+    border-color: rgba(184, 134, 11, 0.25);
 }
 [data-theme="light"] body.golden-theme .progress-fill {
     background: linear-gradient(90deg, #b8860b, #ffd700, #b8860b);
@@ -224,11 +242,54 @@ body {
     background: linear-gradient(90deg, #b8860b, #ffd700);
 }
 [data-theme="light"] body.golden-theme .complete-count {
-    color: #b8860b;
+    color: var(--gold);
+}
+[data-theme="light"] body.golden-theme .progress-label,
+[data-theme="light"] body.golden-theme .progress-detail,
+[data-theme="light"] body.golden-theme .complete-label,
+[data-theme="light"] body.golden-theme .complete-total,
+[data-theme="light"] body.golden-theme .review-count {
+    color: var(--gold);
 }
 [data-theme="light"] body.golden-theme .nickname {
-    border-color: rgba(255, 215, 0, 0.3);
-    background: rgba(255, 215, 0, 0.06);
+    border-color: var(--gold);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(255, 193, 7, 0.08));
+    color: #8b6914;
+    font-weight: 700;
+}
+[data-theme="light"] body.golden-theme .nickname:hover {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: var(--gold-light);
+}
+[data-theme="light"] body.golden-theme .image-container {
+    border-color: rgba(184, 134, 11, 0.2);
+    box-shadow: 0 0 40px rgba(255, 215, 0, 0.06), 0 0 0 1px rgba(184, 134, 11, 0.1);
+}
+[data-theme="light"] body.golden-theme .btn-rule,
+[data-theme="light"] body.golden-theme .btn-role-select,
+[data-theme="light"] body.golden-theme .btn-role-select-inline {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+[data-theme="light"] body.golden-theme .btn-rule:hover,
+[data-theme="light"] body.golden-theme .btn-role-select:hover {
+    background: rgba(255, 215, 0, 0.1);
+}
+[data-theme="light"] body.golden-theme .image-role-badge {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    color: #fff;
+    border: none;
+}
+[data-theme="light"] body.golden-theme .mobile-bottom-nav .nav-btn {
+    color: var(--gold);
+    border-color: var(--gold);
+}
+[data-theme="light"] body.golden-theme .mobile-bottom-nav .nav-btn:active {
+    background: rgba(255, 215, 0, 0.15);
+}
+[data-theme="light"] body.golden-theme .loading-spinner {
+    border-color: rgba(184, 134, 11, 0.15);
+    border-top-color: var(--gold);
 }
 
 .review-count {
