@@ -196,6 +196,16 @@ def clear_user_reviews(user_id: str):
     conn.commit()
     conn.close()
 
+
+def set_user_golden(user_id: str, golden: bool = True):
+    """设置用户金名状态"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET is_golden = ? WHERE id = ?", (1 if golden else 0, user_id))
+    conn.commit()
+    conn.close()
+
+
 # ============ 角色服务 ============
 
 def create_role(name: str, image_path: str, avatar_path: str = None) -> RoleResponse:
