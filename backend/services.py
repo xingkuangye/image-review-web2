@@ -120,7 +120,7 @@ def create_or_get_user(user_id: str, nickname: str = "匿名用户") -> UserResp
         created_at=user['created_at'],
         last_active=user['last_active'],
         is_banned=user['is_banned'],
-        is_golden=user['is_golden'] if 'is_golden' in user else 0,
+        is_golden=user['is_golden'],
         total_reviews=total_reviews,
         user_token=token
     )
@@ -173,7 +173,7 @@ def get_all_users(sort_by: str = "id") -> List[UserResponse]:
             created_at=row['created_at'],
             last_active=row['last_active'],
             is_banned=row['is_banned'],
-            is_golden=row['is_golden'] if 'is_golden' in row else 0,
+            is_golden=row['is_golden'],
             total_reviews=row['review_count']
         ))
     
