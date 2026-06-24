@@ -116,13 +116,6 @@
     100% { background-position: -400% 0%; }
 }
 
-/* 金色主题进度条流光动画 */
-@keyframes goldShimmer {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
 /* ========== Base ========== */
 /* ========== Base ========== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -219,146 +212,26 @@ body {
 
 /* 金名样式（仅浅色模式生效） */
 .nickname.golden {
-    color: #c9952e;
-    font-weight: 700;
-    background: rgba(255,215,0,0.06);
-    border-color: rgba(201,149,46,0.3);
+    color: #8b6914;
+    font-weight: 600;
 }
 [data-theme="light"] .nickname.golden {
-    background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(255,193,7,0.03));
-    border-color: rgba(201,149,46,0.25);
     color: #8b6914;
-    font-weight: 700;
-    text-shadow: 0 1px 2px rgba(201,149,46,0.1);
+    font-weight: 600;
 }
 
-/* 金名主题 — 浅色模式下豪华金色界面（通过 CSS 变量覆盖）
-   换用暖金色调 + 微光效，昵称使用渐变金色文字（不遮挡） */
-[data-theme="light"] body.golden-theme {
-    --theme-accent: #c9952e;
-    --theme-accent-light: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(218,165,32,0.06));
-    --theme-accent-hover: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(218,165,32,0.12));
-    --theme-kbd-bg: linear-gradient(135deg, #c9952e, #e8b830);
-    --theme-kbd-border: rgba(201,149,46,0.3);
-    --theme-glow: 0 0 24px rgba(232,184,48,0.2), 0 0 0 1px rgba(232,184,48,0.15);
-    --theme-nav-border: linear-gradient(90deg, #c9952e, #ffd700, #c9952e);
-    --theme-nav-shadow: 0 2px 24px rgba(201,149,46,0.12), inset 0 -1px 0 rgba(255,215,0,0.06);
-    --theme-progress: linear-gradient(90deg, #c9952e, #ffd700 30%, #e8b830 60%, #ffd700);
-    --theme-top-progress: linear-gradient(90deg, #c9952e, #ffd700, #e8b830);
-    --theme-badge-grad: linear-gradient(135deg, #c9952e, #ffd700, #e8b830);
-    --theme-nickname-bg: linear-gradient(135deg, rgba(255,215,0,0.10), rgba(255,193,7,0.05));
-    --theme-nickname-border: rgba(201,149,46,0.3);
-    --theme-nickname-color: #8b6914;
-    --theme-nickname-hover-bg: linear-gradient(135deg, rgba(255,215,0,0.18), rgba(255,193,7,0.10));
-    --theme-nickname-hover-border: #e8b830;
-    --theme-image-border: rgba(201,149,46,0.15);
-    --theme-image-glow: 0 0 60px rgba(255,215,0,0.08), 0 0 0 1px rgba(201,149,46,0.12);
-    --theme-accent-text: #c9952e;
-    --theme-mobile-btn-active: rgba(255,215,0,0.15);
-    --theme-spinner-track: rgba(201,149,46,0.12);
-    --theme-spinner-top: #c9952e;
-    --theme-rule-btn-hover-bg: rgba(255,215,0,0.10);
-    --theme-btn-shadow: 0 0 0 1px rgba(201,149,46,0.15), 0 0 12px rgba(255,215,0,0.04);
-}
-
-[data-theme="light"] body.golden-theme .navbar {
-    border-bottom: none;
-    box-shadow: var(--theme-nav-shadow);
-    position: relative;
-}
-[data-theme="light"] body.golden-theme .navbar::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 1.5px;
-    background: var(--theme-nav-border);
-}
-[data-theme="light"] body.golden-theme .btn-pass,
-[data-theme="light"] body.golden-theme .btn-fail,
-[data-theme="light"] body.golden-theme .btn-download,
-[data-theme="light"] body.golden-theme .btn-prev,
-[data-theme="light"] body.golden-theme .btn-skip {
-    border-color: var(--theme-accent);
-    color: var(--theme-accent);
-    background: var(--theme-accent-light);
-    box-shadow: var(--theme-btn-shadow);
-    backdrop-filter: blur(8px);
-}
-[data-theme="light"] body.golden-theme .btn-pass:hover,
-[data-theme="light"] body.golden-theme .btn-fail:hover,
-[data-theme="light"] body.golden-theme .btn-download:hover,
-[data-theme="light"] body.golden-theme .btn-prev:hover,
-[data-theme="light"] body.golden-theme .btn-skip:hover {
-    background: var(--theme-accent-hover);
-    border-color: var(--theme-accent);
-    box-shadow: var(--theme-glow);
-}
-[data-theme="light"] body.golden-theme .btn-pass kbd,
-[data-theme="light"] body.golden-theme .btn-fail kbd,
-[data-theme="light"] body.golden-theme .btn-skip kbd,
-[data-theme="light"] body.golden-theme .btn-prev kbd {
-    background: var(--theme-kbd-bg);
-    color: #fff;
-    border: none;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-[data-theme="light"] body.golden-theme .progress-fill {
-    background: var(--theme-progress);
-    background-size: 200% 100%;
-    animation: goldShimmer 3s ease-in-out infinite;
-}
-[data-theme="light"] body.golden-theme .top-progress-fill {
-    background: var(--theme-top-progress);
-    background-size: 200% 100%;
-    animation: goldShimmer 4s ease-in-out infinite;
-}
-[data-theme="light"] body.golden-theme .complete-count,
-[data-theme="light"] body.golden-theme .progress-label,
-[data-theme="light"] body.golden-theme .progress-detail,
-[data-theme="light"] body.golden-theme .complete-label,
-[data-theme="light"] body.golden-theme .complete-total,
-[data-theme="light"] body.golden-theme .review-count {
-    color: var(--theme-accent-text);
-}
+/* 金名主题 — 仅改变昵称文字颜色 + 前缀星标
+   顾问建议：金色只出现在用户身份层，不碰应用界面 */
 [data-theme="light"] body.golden-theme .nickname {
-    border-color: var(--theme-nickname-border);
-    background: var(--theme-nickname-bg);
-    color: var(--theme-nickname-color);
-    font-weight: 700;
+    color: #8b6914;
+    font-weight: 600;
 }
-[data-theme="light"] body.golden-theme .nickname:hover {
-    background: var(--theme-nickname-hover-bg);
-    border-color: var(--theme-nickname-hover-border);
-}
-[data-theme="light"] body.golden-theme .image-container {
-    border-color: var(--theme-image-border);
-    box-shadow: var(--theme-image-glow);
-}
-[data-theme="light"] body.golden-theme .btn-rule,
-[data-theme="light"] body.golden-theme .btn-role-select,
-[data-theme="light"] body.golden-theme .btn-role-select-inline {
-    border-color: var(--theme-accent);
-    color: var(--theme-accent);
-}
-[data-theme="light"] body.golden-theme .btn-rule:hover,
-[data-theme="light"] body.golden-theme .btn-role-select:hover {
-    background: var(--theme-rule-btn-hover-bg);
-}
-[data-theme="light"] body.golden-theme .image-role-badge {
-    background: var(--theme-badge-grad);
-    color: #fff;
-    border: none;
-}
-[data-theme="light"] body.golden-theme .mobile-bottom-nav .nav-btn {
-    color: var(--theme-accent);
-    border-color: var(--theme-accent);
-}
-[data-theme="light"] body.golden-theme .mobile-bottom-nav .nav-btn:active {
-    background: var(--theme-mobile-btn-active);
-}
-[data-theme="light"] body.golden-theme .loading-spinner {
-    border-color: var(--theme-spinner-track);
-    border-top-color: var(--theme-spinner-top);
+[data-theme="light"] body.golden-theme .nickname::before {
+    content: '✦';
+    margin-right: 0.35em;
+    font-size: 0.65em;
+    color: rgba(184, 134, 11, 0.45);
+    vertical-align: middle;
 }
 
 .review-count {
