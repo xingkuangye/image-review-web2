@@ -125,28 +125,20 @@ def migrate_add_credibility():
             conn.close()
 
 
-def update_all_credibility(required_weight=4.0, default_credibility=0.5):
+def update_all_credibility(required_weight=4.0, default_credibility=None):
     """全量重新计算所有用户可信度（加权投票）
     先根据当前信用分找出已完成图片，清空后重新计算，
     避免在无已完成图片时误清空用户信用分。
     """
+    from backend.services import DEFAULT_CREDIBILITY, log_message
+
+    if default_credibility is None:
+        default_credibility = DEFAULT_CREDIBILITY
+
     conn = get_db()
     cursor = conn.cursor()
 
-    # 先检查是否有已完成图片，再决定是否清空
-    cursor.execute('''
-        SELECT 1 FROM reviews r
-        LEFT JOIN users u ON r.user_id = u.id
-        WHERE r.status IN ('pass', 'fail')
-        GROUP BY r.image_id
-        HAVING COALESCE(SUM(COALESCE(u.credibility_score, ?)), 0) >= ?
-        LIMIT 1
-    ''', (default_credibility, required_weight))
-    if not cursor.fetchone():
-        conn.close()
-        return  # 无图片完成，不破坏现有信用分
-
-    # 找出所有完成图片并缓存 ID
+    # 一次查询找出所有完成图片，空则直接返回
     cursor.execute('''
         SELECT r.image_id
         FROM reviews r
@@ -156,6 +148,11 @@ def update_all_credibility(required_weight=4.0, default_credibility=0.5):
         HAVING COALESCE(SUM(COALESCE(u.credibility_score, ?)), 0) >= ?
     ''', (default_credibility, required_weight))
     completed_ids = [row[0] for row in cursor.fetchall()]
+
+    if not completed_ids:
+        log_message("全量可信度重算：无已完成图片，跳过（现有信用分保持不变）")
+        conn.close()
+        return
 
     # 初始化所有用户
     cursor.execute("UPDATE users SET credibility_score = NULL, credibility_agrees = 0, credibility_total = 0")
@@ -167,6 +164,7 @@ def update_all_credibility(required_weight=4.0, default_credibility=0.5):
             LEFT JOIN users u ON r.user_id = u.id
             WHERE r.image_id = ? AND r.status IN ('pass', 'fail')
         ''', (default_credibility, image_id,))
+        rows = cursor.fetchall()
 
         if len(set(r[0] for r in rows)) < 2:
             continue
