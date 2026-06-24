@@ -390,8 +390,10 @@ function updateUserUI() {
     nickEl.textContent = currentUser.nickname;
     if (currentUser.is_golden) {
         nickEl.classList.add('golden');
+        document.body.classList.add('golden-theme');
     } else {
         nickEl.classList.remove('golden');
+        document.body.classList.remove('golden-theme');
     }
     document.getElementById('userReviewCount').textContent = currentUser.total_reviews;
 }
