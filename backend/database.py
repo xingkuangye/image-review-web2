@@ -127,10 +127,10 @@ def migrate_add_credibility():
 
 def update_all_credibility(required_weight=4.0, default_credibility=None):
     """全量重新计算所有用户可信度（加权投票）
-    先根据当前信用分找出已完成图片，清空后重新计算，
-    避免在无已完成图片时误清空用户信用分。
+    先找加权完成图片（权重 >= required_weight）重算；
+    如无，降级用投票数 >= REQUIRED_VOTES 的图片以简单多数计算。
     """
-    from backend.services import DEFAULT_CREDIBILITY, log_message
+    from backend.services import DEFAULT_CREDIBILITY, log_message, REQUIRED_VOTES
 
     if default_credibility is None:
         default_credibility = DEFAULT_CREDIBILITY
@@ -138,7 +138,13 @@ def update_all_credibility(required_weight=4.0, default_credibility=None):
     conn = get_db()
     cursor = conn.cursor()
 
-    # 一次查询找出所有完成图片，空则直接返回
+    # 先给所有空信用分的用户设置默认值
+    cursor.execute(
+        "UPDATE users SET credibility_score = ? WHERE credibility_score IS NULL",
+        (default_credibility,)
+    )
+
+    # 先尝试找加权完成的图片
     cursor.execute('''
         SELECT r.image_id
         FROM reviews r
@@ -150,12 +156,39 @@ def update_all_credibility(required_weight=4.0, default_credibility=None):
     completed_ids = [row[0] for row in cursor.fetchall()]
 
     if not completed_ids:
-        log_message("全量可信度重算：无已完成图片，跳过（现有信用分保持不变）")
+        # 降级：找投票数 >= REQUIRED_VOTES 的图片
+        log_message("全量可信度重算：无加权完成图片，降级使用简单多数（投票数>=" + str(REQUIRED_VOTES) + "）")
+        cursor.execute('''
+            SELECT image_id,
+                   SUM(CASE WHEN status = 'pass' THEN 1 ELSE 0 END) as pass_count,
+                   SUM(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) as fail_count
+            FROM reviews
+            WHERE status IN ('pass', 'fail')
+            GROUP BY image_id
+            HAVING COUNT(*) >= ?
+        ''', (REQUIRED_VOTES,))
+        rows = cursor.fetchall()
+        for image_id, pass_cnt, fail_cnt in rows:
+            final_result = 'pass' if pass_cnt >= fail_cnt else 'fail'
+            cursor.execute('''
+                SELECT user_id, status FROM reviews
+                WHERE image_id = ? AND status IN ('pass', 'fail')
+            ''', (image_id,))
+            for user_id, vote in cursor.fetchall():
+                agrees = 1 if vote == final_result else 0
+                cursor.execute('''
+                    UPDATE users SET
+                        credibility_agrees = credibility_agrees + ?,
+                        credibility_total = credibility_total + 1,
+                        credibility_score = CAST(credibility_agrees + ? + 1 AS REAL) / (credibility_total + 1 + 2)
+                    WHERE id = ?
+                ''', (agrees, agrees, user_id))
+        conn.commit()
         conn.close()
         return
 
-    # 初始化所有用户
-    cursor.execute("UPDATE users SET credibility_score = NULL, credibility_agrees = 0, credibility_total = 0")
+    # 加权方式重算
+    cursor.execute("UPDATE users SET credibility_agrees = 0, credibility_total = 0, credibility_score = ?", (default_credibility,))
 
     for image_id in completed_ids:
         cursor.execute('''
