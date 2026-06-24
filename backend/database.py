@@ -126,14 +126,14 @@ def migrate_add_credibility():
 
 
 def update_all_credibility(required_weight=4.0):
-    """全量重新计算所有用户可信度（加权投票）"""
+    """全量重新计算所有用户可信度（加权投票）
+    先根据当前信用分找出已完成图片，清空后重新计算，
+    避免在无已完成图片时误清空用户信用分。
+    """
     conn = get_db()
     cursor = conn.cursor()
 
-    # 初始化所有用户
-    cursor.execute("UPDATE users SET credibility_score = NULL, credibility_agrees = 0, credibility_total = 0")
-
-    # 找出所有完成审核的图片（权重 >= required_weight）
+    # 先根据当前信用分找出完成图片后再清空，避免丢失
     cursor.execute('''
         SELECT r.image_id
         FROM reviews r
@@ -143,6 +143,13 @@ def update_all_credibility(required_weight=4.0):
         HAVING COALESCE(SUM(COALESCE(u.credibility_score, 0.5)), 0) >= ?
     ''', (required_weight,))
     completed_ids = [row[0] for row in cursor.fetchall()]
+
+    if not completed_ids:
+        conn.close()
+        return  # 无图片完成，不破坏现有信用分
+
+    # 初始化所有用户
+    cursor.execute("UPDATE users SET credibility_score = NULL, credibility_agrees = 0, credibility_total = 0")
 
     for image_id in completed_ids:
         cursor.execute('''
