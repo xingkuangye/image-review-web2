@@ -116,6 +116,12 @@
     100% { background-position: -400% 0%; }
 }
 
+/* 金色主题进度条流光动画 */
+@keyframes goldShimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
 
 /* ========== Base ========== */
 /* ========== Base ========== */
@@ -213,50 +219,59 @@ body {
 
 /* 金名样式（仅浅色模式生效） */
 .nickname.golden {
-    color: #8b6914;
+    color: #c9952e;
     font-weight: 700;
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(255, 193, 7, 0.08));
-    border-color: #b8860b;
+    background: rgba(255,215,0,0.06);
+    border-color: rgba(201,149,46,0.3);
 }
 [data-theme="light"] .nickname.golden {
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 193, 7, 0.1));
-    border-color: #b8860b;
+    background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(255,193,7,0.03));
+    border-color: rgba(201,149,46,0.25);
     color: #8b6914;
     font-weight: 700;
+    text-shadow: 0 1px 2px rgba(201,149,46,0.1);
 }
 
-/* 金名主题 — 浅色模式下金色界面（通过 CSS 变量覆盖） */
+/* 金名主题 — 浅色模式下豪华金色界面（通过 CSS 变量覆盖）
+   换用暖金色调 + 微光效，昵称使用渐变金色文字（不遮挡） */
 [data-theme="light"] body.golden-theme {
-    --theme-accent: #b8860b;
-    --theme-accent-light: rgba(218,165,32,0.08);
-    --theme-accent-hover: rgba(218,165,32,0.15);
-    --theme-kbd-bg: rgba(184, 134, 11, 0.15);
-    --theme-kbd-border: rgba(184, 134, 11, 0.25);
-    --theme-glow: 0 0 20px rgba(255, 215, 0, 0.15);
-    --theme-nav-border: #b8860b;
-    --theme-nav-shadow: 0 2px 24px rgba(184, 134, 11, 0.12);
-    --theme-progress: linear-gradient(90deg, #b8860b, #ffd700, #b8860b);
-    --theme-top-progress: linear-gradient(90deg, #b8860b, #ffd700);
-    --theme-badge-grad: linear-gradient(135deg, #b8860b, #ffd700);
-    --theme-nickname-bg: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,193,7,0.08));
-    --theme-nickname-border: #b8860b;
+    --theme-accent: #c9952e;
+    --theme-accent-light: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(218,165,32,0.06));
+    --theme-accent-hover: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(218,165,32,0.12));
+    --theme-kbd-bg: linear-gradient(135deg, #c9952e, #e8b830);
+    --theme-kbd-border: rgba(201,149,46,0.3);
+    --theme-glow: 0 0 24px rgba(232,184,48,0.2), 0 0 0 1px rgba(232,184,48,0.15);
+    --theme-nav-border: linear-gradient(90deg, #c9952e, #ffd700, #c9952e);
+    --theme-nav-shadow: 0 2px 24px rgba(201,149,46,0.12), inset 0 -1px 0 rgba(255,215,0,0.06);
+    --theme-progress: linear-gradient(90deg, #c9952e, #ffd700 30%, #e8b830 60%, #ffd700);
+    --theme-top-progress: linear-gradient(90deg, #c9952e, #ffd700, #e8b830);
+    --theme-badge-grad: linear-gradient(135deg, #c9952e, #ffd700, #e8b830);
+    --theme-nickname-bg: linear-gradient(135deg, rgba(255,215,0,0.10), rgba(255,193,7,0.05));
+    --theme-nickname-border: rgba(201,149,46,0.3);
     --theme-nickname-color: #8b6914;
-    --theme-nickname-hover-bg: rgba(255,215,0,0.2);
-    --theme-nickname-hover-border: #ffd700;
-    --theme-image-border: rgba(184, 134, 11, 0.2);
-    --theme-image-glow: 0 0 40px rgba(255, 215, 0, 0.06), 0 0 0 1px rgba(184, 134, 11, 0.1);
-    --theme-accent-text: #b8860b;
+    --theme-nickname-hover-bg: linear-gradient(135deg, rgba(255,215,0,0.18), rgba(255,193,7,0.10));
+    --theme-nickname-hover-border: #e8b830;
+    --theme-image-border: rgba(201,149,46,0.15);
+    --theme-image-glow: 0 0 60px rgba(255,215,0,0.08), 0 0 0 1px rgba(201,149,46,0.12);
+    --theme-accent-text: #c9952e;
     --theme-mobile-btn-active: rgba(255,215,0,0.15);
-    --theme-spinner-track: rgba(184, 134, 11, 0.15);
-    --theme-spinner-top: #b8860b;
-    --theme-rule-btn-hover-bg: rgba(255,215,0,0.1);
-    --theme-btn-shadow: 0 0 0 0.5px rgba(184, 134, 11, 0.15);
-    /* Kept for backwards compat - golden overrides all theme-* vars above */
+    --theme-spinner-track: rgba(201,149,46,0.12);
+    --theme-spinner-top: #c9952e;
+    --theme-rule-btn-hover-bg: rgba(255,215,0,0.10);
+    --theme-btn-shadow: 0 0 0 1px rgba(201,149,46,0.15), 0 0 12px rgba(255,215,0,0.04);
 }
 
 [data-theme="light"] body.golden-theme .navbar {
-    border-bottom: 1px solid var(--theme-nav-border);
+    border-bottom: none;
     box-shadow: var(--theme-nav-shadow);
+    position: relative;
+}
+[data-theme="light"] body.golden-theme .navbar::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1.5px;
+    background: var(--theme-nav-border);
 }
 [data-theme="light"] body.golden-theme .btn-pass,
 [data-theme="light"] body.golden-theme .btn-fail,
@@ -267,6 +282,7 @@ body {
     color: var(--theme-accent);
     background: var(--theme-accent-light);
     box-shadow: var(--theme-btn-shadow);
+    backdrop-filter: blur(8px);
 }
 [data-theme="light"] body.golden-theme .btn-pass:hover,
 [data-theme="light"] body.golden-theme .btn-fail:hover,
@@ -282,14 +298,19 @@ body {
 [data-theme="light"] body.golden-theme .btn-skip kbd,
 [data-theme="light"] body.golden-theme .btn-prev kbd {
     background: var(--theme-kbd-bg);
-    color: var(--theme-accent);
-    border-color: var(--theme-kbd-border);
+    color: #fff;
+    border: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 [data-theme="light"] body.golden-theme .progress-fill {
     background: var(--theme-progress);
+    background-size: 200% 100%;
+    animation: goldShimmer 3s ease-in-out infinite;
 }
 [data-theme="light"] body.golden-theme .top-progress-fill {
     background: var(--theme-top-progress);
+    background-size: 200% 100%;
+    animation: goldShimmer 4s ease-in-out infinite;
 }
 [data-theme="light"] body.golden-theme .complete-count,
 [data-theme="light"] body.golden-theme .progress-label,
