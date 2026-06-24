@@ -386,7 +386,13 @@ async function initUser() {
 }
 
 function updateUserUI() {
-    document.getElementById('userNickname').textContent = currentUser.nickname;
+    var nickEl = document.getElementById('userNickname');
+    nickEl.textContent = currentUser.nickname;
+    if (currentUser.is_golden) {
+        nickEl.classList.add('golden');
+    } else {
+        nickEl.classList.remove('golden');
+    }
     document.getElementById('userReviewCount').textContent = currentUser.total_reviews;
 }
 

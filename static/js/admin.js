@@ -623,7 +623,7 @@ async function loadUsers() {
             <div class="user-item ${user.is_banned ? 'banned' : ''}">
                 <div class="user-avatar">${user.nickname.charAt(0).toUpperCase()}</div>
                 <div class="user-info">
-                    <div class="user-nickname">${escapeHtml(user.nickname)}</div>
+                    <div class="user-nickname${user.is_golden ? ' golden' : ''}">${escapeHtml(user.nickname)}</div>
                     <div class="user-id">ID: ${user.id.substring(0, 8)}...</div>
                 </div>
                 <div class="user-stats">
@@ -645,6 +645,10 @@ async function loadUsers() {
                 <div class="user-actions">
                     <button class="btn btn-small" onclick="showUserReviews('${user.id}')">查看</button>
                     <button class="btn btn-small btn-warning" onclick="clearUserReviews('${user.id}')">清除</button>
+                    <button class="btn btn-small ${user.is_golden ? 'btn-golden-active' : 'btn-outline'}" 
+                            onclick="toggleGolden('${user.id}', ${!user.is_golden})">
+                        ${user.is_golden ? '金名' : '金名'}
+                    </button>
                     <button class="btn btn-small ${user.is_banned ? 'btn-success' : 'btn-danger'}" 
                             onclick="toggleBan('${user.id}', ${!user.is_banned})">
                         ${user.is_banned ? '解封' : '封禁'}
@@ -722,6 +726,22 @@ async function clearUserReviews(userId) {
         }
     } catch (e) {
         console.error('清除失败:', e);
+    }
+}
+
+async function toggleGolden(userId, golden) {
+    const action = golden ? '启用金名' : '取消金名';
+    if (!confirm(`确定${action}吗？`)) return;
+    try {
+        const formData = new FormData();
+        formData.append('golden', golden);
+        const response = await adminFetch(`/api/admin/users/${userId}/golden`, {
+            method: 'POST',
+            body: formData
+        });
+        if (response.ok) loadUsers();
+    } catch (e) {
+        console.error('设置金名失败:', e);
     }
 }
 
@@ -1250,7 +1270,13 @@ async function deleteBackupFile(filename) {
 }
 
 function formatCred(cred) {
-    if (!cred || !cred.total || cred.total === 0) return '--';
+    if (!cred) return '--';
+    if (cred.score == null) return '--';
+    if (cred.total === 0) {
+        var pct = Math.round(cred.score * 100);
+        var color = pct >= 80 ? 'var(--accent-green)' : pct >= 60 ? 'var(--accent-amber)' : 'var(--accent-red)';
+        return '<span style="color:' + color + ';font-weight:600;font-size:14px;">' + pct + '%</span><span style="font-size:10px;color:var(--text-muted);display:block;">默认</span>';
+    }
     var pct = Math.round(cred.score * 100);
     var color = pct >= 80 ? 'var(--accent-green)' : pct >= 60 ? 'var(--accent-amber)' : 'var(--accent-red)';
     return '<span style="color:' + color + ';font-weight:600;font-size:14px;">' + pct + '%</span><span style="font-size:10px;color:var(--text-muted);display:block;">' + cred.agrees + '/' + cred.total + '</span>';

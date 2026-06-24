@@ -781,6 +781,15 @@ async def admin_recalc_credibility(x_admin_password: str = Header(None)):
     return {"success": True, "message": "可信度已重新计算"}
 
 
+@app.post("/api/admin/users/{user_id}/golden")
+async def admin_set_golden(user_id: str, golden: bool = Form(...), x_admin_password: str = Header(None)):
+    """设置用户金名状态"""
+    verify_admin(x_admin_password)
+    from backend.services import set_user_golden
+    set_user_golden(user_id, golden)
+    return {"success": True}
+
+
 @app.get("/api/admin/credibility")
 async def admin_credibility(x_admin_password: str = Header(None)):
     """获取所有用户可信度"""

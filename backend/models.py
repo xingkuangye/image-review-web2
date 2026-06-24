@@ -15,6 +15,7 @@ class UserResponse(BaseModel):
     created_at: str
     last_active: str
     is_banned: int
+    is_golden: int = 0
     total_reviews: int = 0
     user_token: Optional[str] = None
 

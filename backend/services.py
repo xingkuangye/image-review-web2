@@ -120,6 +120,7 @@ def create_or_get_user(user_id: str, nickname: str = "匿名用户") -> UserResp
         created_at=user['created_at'],
         last_active=user['last_active'],
         is_banned=user['is_banned'],
+        is_golden=user['is_golden'] if 'is_golden' in user else 0,
         total_reviews=total_reviews,
         user_token=token
     )
@@ -157,7 +158,7 @@ def get_all_users(sort_by: str = "id") -> List[UserResponse]:
     order_by = allowed_sort.get(sort_by, "u.id")
     
     cursor.execute(f'''
-        SELECT u.id, u.nickname, u.created_at, u.last_active, u.is_banned, COUNT(r.id) as review_count
+        SELECT u.id, u.nickname, u.created_at, u.last_active, u.is_banned, u.is_golden, COUNT(r.id) as review_count
         FROM users u
         LEFT JOIN reviews r ON u.id = r.user_id
         GROUP BY u.id
@@ -172,6 +173,7 @@ def get_all_users(sort_by: str = "id") -> List[UserResponse]:
             created_at=row['created_at'],
             last_active=row['last_active'],
             is_banned=row['is_banned'],
+            is_golden=row['is_golden'] if 'is_golden' in row else 0,
             total_reviews=row['review_count']
         ))
     

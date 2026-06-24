@@ -184,6 +184,18 @@ body {
 }
 .nickname:hover { background: rgba(255,255,255,0.1); border-color: var(--border-medium); }
 
+/* 金名样式（仅浅色模式生效） */
+.nickname.golden {
+    color: #b8860b;
+    font-weight: 700;
+}
+[data-theme="light"] .nickname.golden {
+    background: linear-gradient(135deg, #b8860b, #ffd700, #b8860b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+}
+
 .review-count {
     font-size: 13px; color: var(--text-secondary);
 }

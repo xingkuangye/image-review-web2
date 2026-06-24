@@ -119,6 +119,10 @@ def migrate_add_credibility():
             cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_token ON users(user_token)")
         except Exception:
             pass
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN is_golden INTEGER DEFAULT 0")
+        except Exception:
+            pass
         conn.commit()
     finally:
         if conn:
