@@ -575,10 +575,8 @@ body {
     font-weight: 700;
 }
 [data-theme="light"] .user-nickname.golden {
-    background: linear-gradient(135deg, #b8860b, #ffd700);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-weight: 700;
+    color: #7a5d16;
+    font-weight: 600;
 }
 .user-nickname.banned-text { text-decoration: line-through; color: var(--text-muted); }
 .user-id { font-size: 11px; color: var(--text-muted); margin-top: 1px; }

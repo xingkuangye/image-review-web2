@@ -212,25 +212,43 @@ body {
 
 /* 金名样式（仅浅色模式生效） */
 .nickname.golden {
-    color: #8b6914;
+    color: #7a5d16;
     font-weight: 600;
 }
 [data-theme="light"] .nickname.golden {
-    color: #8b6914;
+    color: #7a5d16;
     font-weight: 600;
 }
 
-/* 金名主题 — 仅改变昵称文字颜色 + 前缀星标
-   顾问建议：金色只出现在用户身份层，不碰应用界面 */
+/* 金名主题 — 氛围金色（装饰元素），功能保持蓝色 */
+[data-theme="light"] body.golden-theme {
+    --gold-border: #c9a84c;
+    --gold-glow: rgba(180, 140, 50, 0.07);
+    --gold-text: #7a5d16;
+    --gold-star: rgba(180, 140, 50, 0.4);
+    --gold-badge: linear-gradient(135deg, #c9a84c, #e0c868);
+}
+[data-theme="light"] body.golden-theme .navbar {
+    border-bottom: 1.5px solid var(--gold-border);
+}
+[data-theme="light"] body.golden-theme .image-container {
+    border-color: var(--gold-border);
+    box-shadow: 0 0 30px var(--gold-glow);
+}
+[data-theme="light"] body.golden-theme .image-role-badge {
+    background: var(--gold-badge);
+    color: #fff;
+    border: none;
+}
 [data-theme="light"] body.golden-theme .nickname {
-    color: #8b6914;
+    color: var(--gold-text);
     font-weight: 600;
 }
 [data-theme="light"] body.golden-theme .nickname::before {
     content: '✦';
     margin-right: 0.35em;
     font-size: 0.65em;
-    color: rgba(184, 134, 11, 0.45);
+    color: var(--gold-star);
     vertical-align: middle;
 }
 
