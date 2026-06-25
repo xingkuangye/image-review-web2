@@ -174,8 +174,8 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading-spinner {
     width: 36px; height: 36px;
-    border: 2px solid rgba(255,255,255,0.08);
-    border-top-color: var(--accent-blue);
+    border: 2px solid var(--theme-spinner-track, rgba(255,255,255,0.08));
+    border-top-color: var(--theme-spinner-top, var(--accent-blue));
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -188,7 +188,8 @@ body {
     height: 60px;
     background: var(--bg-glass);
     backdrop-filter: blur(20px) saturate(1.2);
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--theme-nav-border, var(--border-subtle));
+    box-shadow: var(--theme-nav-shadow, none);
     position: relative;
     z-index: 100;
 }
@@ -220,35 +221,53 @@ body {
     font-weight: 600;
 }
 
-/* 金名主题 — 氛围金色（装饰元素），功能保持蓝色 */
+/* 金名主题 — 金色作为页面主色调（覆盖所有 --theme-* 变量） */
 [data-theme="light"] body.golden-theme {
-    --gold-border: #c9a84c;
-    --gold-glow: rgba(180, 140, 50, 0.07);
-    --gold-text: #7a5d16;
-    --gold-star: rgba(180, 140, 50, 0.4);
-    --gold-badge: linear-gradient(135deg, #c9a84c, #e0c868);
+    --theme-accent: #c9a84c;
+    --theme-accent-light: linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.05));
+    --theme-accent-hover: linear-gradient(135deg, rgba(201,168,76,0.22), rgba(201,168,76,0.1));
+    --theme-kbd-bg: linear-gradient(135deg, #c9a84c, #d4b85a);
+    --theme-kbd-border: rgba(201,168,76,0.2);
+    --theme-glow: 0 0 24px rgba(201,168,76,0.18), 0 0 0 1px rgba(201,168,76,0.1);
+    --theme-nav-border: #c9a84c;
+    --theme-nav-shadow: 0 2px 20px rgba(201,168,76,0.1);
+    --theme-progress: linear-gradient(90deg, #c9a84c, #e0c868, #c9a84c);
+    --theme-top-progress: linear-gradient(90deg, #c9a84c, #e0c868);
+    --theme-badge-grad: linear-gradient(135deg, #c9a84c, #e0c868);
+    --theme-nickname-bg: rgba(255,252,242,0.4);
+    --theme-nickname-border: #c9a84c;
+    --theme-nickname-hover-bg: rgba(255,252,242,0.7);
+    --theme-nickname-hover-border: #d4b85a;
+    --theme-image-border: rgba(201,168,76,0.2);
+    --theme-image-glow: 0 0 40px rgba(201,168,76,0.06);
+    --theme-accent-text: #c9a84c;
+    --theme-mobile-btn-active: rgba(201,168,76,0.15);
+    --theme-spinner-track: rgba(201,168,76,0.1);
+    --theme-spinner-top: #c9a84c;
+    --theme-rule-btn-hover-bg: rgba(201,168,76,0.08);
+    --theme-btn-shadow: 0 0 0 1px rgba(201,168,76,0.1), 0 0 12px rgba(201,168,76,0.03);
+    --theme-nickname-color: #7a5d16;
+    --theme-progress-size: 100% 100%;
+    --theme-progress-anim: none;
 }
 [data-theme="light"] body.golden-theme .navbar {
-    border-bottom: 1.5px solid var(--gold-border);
+    border-bottom: 1.5px solid var(--theme-nav-border);
+    box-shadow: var(--theme-nav-shadow);
 }
 [data-theme="light"] body.golden-theme .image-container {
-    border-color: var(--gold-border);
-    box-shadow: 0 0 30px var(--gold-glow);
+    border-color: var(--theme-image-border);
+    box-shadow: var(--theme-image-glow);
 }
 [data-theme="light"] body.golden-theme .image-role-badge {
-    background: var(--gold-badge);
+    background: var(--theme-badge-grad);
     color: #fff;
     border: none;
-}
-[data-theme="light"] body.golden-theme .nickname {
-    color: var(--gold-text);
-    font-weight: 600;
 }
 [data-theme="light"] body.golden-theme .nickname::before {
     content: '✦';
     margin-right: 0.35em;
     font-size: 0.65em;
-    color: var(--gold-star);
+    color: rgba(201,168,76,0.45);
     vertical-align: middle;
 }
 
@@ -270,14 +289,14 @@ body {
 }
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg,
+    background: var(--theme-progress, linear-gradient(90deg,
         var(--accent-blue),
         var(--accent-purple),
         var(--accent-green),
         var(--accent-blue)
-    );
-    background-size: 300% 100%;
-    animation: progFillSlide 10s linear infinite;
+    ));
+    background-size: var(--theme-progress-size, 300% 100%);
+    animation: var(--theme-progress-anim, progFillSlide 10s linear infinite);
     width: 0%;
     border-radius: 6px;
     transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
